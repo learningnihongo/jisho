@@ -28,13 +28,13 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -501,7 +501,7 @@ fun FlashcardStudyCard(
                     modifier = Modifier.size(34.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.VolumeUp,
+                        imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                         contentDescription = "Speak",
                         tint = MaterialTheme.colorScheme.primary
                     )
@@ -594,7 +594,7 @@ fun SavedWordItemCard(
 
             Row {
                 IconButton(onClick = { onSpeak(word.word) }, modifier = Modifier.size(34.dp)) {
-                    Icon(Icons.Default.VolumeUp, contentDescription = "Pronounce", tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Pronounce", tint = MaterialTheme.colorScheme.primary)
                 }
                 IconButton(onClick = onDelete, modifier = Modifier.size(34.dp)) {
                     Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.outline)
@@ -667,7 +667,7 @@ fun ScanHistoryCard(
                 horizontalArrangement = Arrangement.End
             ) {
                 IconButton(onClick = { onSpeak(history.originalText) }, modifier = Modifier.size(30.dp)) {
-                    Icon(Icons.Default.VolumeUp, contentDescription = "Speak", tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Speak", tint = MaterialTheme.colorScheme.primary)
                 }
                 IconButton(onClick = onDelete, modifier = Modifier.size(30.dp)) {
                     Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.outline)

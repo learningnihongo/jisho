@@ -15,31 +15,45 @@ private val DarkColorScheme = darkColorScheme(
     onPrimary = IndigoOnPrimaryDark,
     primaryContainer = IndigoPrimaryContainerDark,
     onPrimaryContainer = IndigoOnPrimaryContainerDark,
-    secondary = CoralSecondaryDark,
-    secondaryContainer = CoralSecondaryContainerDark,
-    onSecondaryContainer = CoralOnSecondaryContainerDark,
-    tertiary = SakuraTertiaryDark,
-    tertiaryContainer = SakuraTertiaryContainerDark,
-    onTertiaryContainer = SakuraOnTertiaryContainerDark
+    secondary = ToriiVermilionDark,
+    onSecondary = VermilionOnSecondaryDark,
+    secondaryContainer = VermilionSecondaryContainerDark,
+    onSecondaryContainer = VermilionOnSecondaryContainerDark,
+    tertiary = MatchaGreenDark,
+    onTertiary = MatchaOnTertiaryDark,
+    tertiaryContainer = MatchaTertiaryContainerDark,
+    onTertiaryContainer = MatchaOnTertiaryContainerDark,
+    background = DarkBackground,
+    surface = DarkSurface,
+    surfaceVariant = DarkSurfaceVariant,
+    outline = DarkOutline,
+    outlineVariant = DarkOutlineVariant
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = IndigoPrimary,
+    primary = JapaneseIndigo,
     onPrimary = IndigoOnPrimary,
-    primaryContainer = IndigoPrimaryContainerDark.copy(alpha = 0.12f),
+    primaryContainer = IndigoPrimaryContainer,
     onPrimaryContainer = IndigoOnPrimaryContainer,
-    secondary = CoralSecondary,
-    secondaryContainer = CoralSecondaryContainer,
-    onSecondaryContainer = CoralOnSecondaryContainer,
-    tertiary = SakuraTertiary,
-    tertiaryContainer = SakuraTertiaryContainer,
-    onTertiaryContainer = SakuraOnTertiaryContainer
+    secondary = ToriiVermilion,
+    onSecondary = VermilionOnSecondary,
+    secondaryContainer = VermilionSecondaryContainer,
+    onSecondaryContainer = VermilionOnSecondaryContainer,
+    tertiary = MatchaGreen,
+    onTertiary = MatchaOnTertiary,
+    tertiaryContainer = MatchaTertiaryContainer,
+    onTertiaryContainer = MatchaOnTertiaryContainer,
+    background = LightBackground,
+    surface = LightSurface,
+    surfaceVariant = LightSurfaceVariant,
+    outline = LightOutline,
+    outlineVariant = LightOutlineVariant
 )
 
 @Composable
 fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false, // Set to false so custom Japanese Indigo theme shines consistently
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {

@@ -23,8 +23,10 @@ permissions:
 
 jobs:
   build:
-    name: Build & Package APK
+    name: Build & Release APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Code
@@ -37,48 +39,45 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Make Gradlew Executable
         run: chmod +x ./gradlew
 
-      - name: Prepare Keystore
+      - name: Restore Keystore
         run: |
           if [ -f debug.keystore.base64 ]; then
-            echo "Decoding debug keystore..."
+            echo "Restoring debug.keystore from base64..."
             base64 -d debug.keystore.base64 > debug.keystore
+          elif [ ! -f debug.keystore ]; then
+            echo "Generating fallback debug keystore..."
+            keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           fi
 
       - name: Build APK with Gradle
-        env:
-          KEYSTORE_PATH: ${{ github.workspace }}/debug.keystore
-          STORE_PASSWORD: android
-          KEY_PASSWORD: android
+        id: build_apk
         run: |
           ./gradlew assembleDebug --stacktrace --no-daemon
 
-      - name: Prepare APK Artifacts
+      - name: Prepare APK Files
         id: apk-prep
         run: |
-          VERSION_NAME="1.0.0"
           mkdir -p release-apks
           
-          # Copy universal APK
-          if [ -f app/build/outputs/apk/debug/app-debug.apk ]; then
-            cp app/build/outputs/apk/debug/app-debug.apk release-apks/LensJisho-v${VERSION_NAME}-universal.apk
-            cp app/build/outputs/apk/debug/app-debug.apk release-apks/LensJisho-v${VERSION_NAME}-debug.apk
-            echo "Universal APK created successfully."
+          # Find generated debug APK
+          APK_FILE=$(find app/build/outputs/apk/ -name "*.apk" | head -n 1)
+          if [ -z "$APK_FILE" ]; then
+            echo "ERROR: No APK found after build!"
+            exit 1
           fi
           
-          # Check if release APK was also produced
-          if [ -f app/build/outputs/apk/release/app-release.apk ]; then
-            cp app/build/outputs/apk/release/app-release.apk release-apks/LensJisho-v${VERSION_NAME}-release.apk
-          fi
+          echo "Found APK at: $APK_FILE"
+          cp "$APK_FILE" release-apks/LensJisho-v1.0.0.apk
+          cp "$APK_FILE" release-apks/LensJisho-universal.apk
           
-          ls -la release-apks/
+          ls -lh release-apks/
 
       - name: Upload APK as Workflow Artifact
         uses: actions/upload-artifact@v4
@@ -87,41 +86,64 @@ jobs:
           path: release-apks/*.apk
           retention-days: 30
 
-      - name: Determine Release Tag
-        id: release_tag
+      - name: Determine Release Tag & Title
+        id: release_info
         run: |
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
             TAG="${GITHUB_REF#refs/tags/}"
+            TITLE="LensJisho ${TAG}"
           elif [ -n "${{ github.event.inputs.tag_name }}" ]; then
             TAG="${{ github.event.inputs.tag_name }}"
+            TITLE="${{ github.event.inputs.release_title || github.event.inputs.tag_name }}"
           else
-            TAG="v1.0.0-${{ github.run_number }}"
+            TAG="v1.0.0"
+            TITLE="LensJisho v1.0.0 (Latest)"
           fi
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
-          echo "Target tag is ${TAG}"
+          echo "title=${TITLE}" >> $GITHUB_OUTPUT
+          echo "Target Release: ${TAG} - ${TITLE}"
 
-      - name: Create GitHub Release and Upload APK
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.release_tag.outputs.tag }}
-          name: ${{ github.event.inputs.release_title || steps.release_tag.outputs.tag }}
-          files: release-apks/*.apk
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-          body: |
-            ## 📱 LensJisho Android Release (${{ steps.release_tag.outputs.tag }})
-            
-            ### ✨ Features Included:
-            - 📷 **Google Lens Camera OCR**: Live Japanese text scan & recognition with instant laser viewfinder.
-            - 📖 **Jisho.org Integration**: Full Japanese-English-Burmese dictionary lookup, Kanji radicals, JLPT levels (N5-N1).
-            - 🇲🇲 **Google Translate**: Full text and sentence translation between Japanese and Myanmar (Burmese) / English.
-            - 📑 **Grammar & Particles Guide**: Particle analysis (`は`, `が`, `を`, `に`, `で`) and verb conjugations.
-            - 🗂️ **Saved Vocabulary Notebook & Anki CSV Export**: Save words, study with Flashcard Quiz, and export directly to Anki!
-            
-            ### 📥 Download & Install:
-            - Download `LensJisho-v1.0.0-universal.apk` below and install directly on your Android phone!
-            - Compatible with Android 7.0 (API 24) up to Android 16 (API 36).
+      - name: Generate Release Notes
+        run: |
+          cat << 'EOF' > release_notes.md
+          ## 📱 LensJisho Android App (${{ steps.release_info.outputs.tag }})
+
+          ### ✨ Key Features:
+          - 📷 **Google Lens Camera OCR**: Live Japanese text scan & recognition with instant viewfinder.
+          - 📖 **Jisho.org Integration**: Full Japanese-English-Burmese dictionary lookup, Kanji radicals, JLPT levels (N5-N1).
+          - 🇲🇲 **Google Translate**: Sentence translation between Japanese and Myanmar (Burmese) / English.
+          - 📑 **Grammar & Particles Guide**: Particle analysis (`は`, `が`, `を`, `に`, `で`) and verb conjugations.
+          - 🗂️ **Saved Vocabulary Notebook & Anki CSV Export**: Save words, study with Flashcard Quiz, and export directly to Anki!
+
+          ### 📥 Download & Install:
+          - Download **`LensJisho-v1.0.0.apk`** below.
+          - Open the APK on your Android device to install (supports Android 7.0+).
+          EOF
+
+      - name: Publish GitHub Release (gh CLI)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release_info.outputs.tag }}
+          TITLE: ${{ steps.release_info.outputs.title }}
+        run: |
+          echo "Publishing release $TAG with title: $TITLE"
+          
+          # Try to create git tag if it doesn't already exist
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f "$TAG" || true
+          git push -f origin "$TAG" || true
+
+          # Create release if not existing, or update assets if already existing
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "Release $TAG already exists. Uploading/overwriting APK assets..."
+            gh release upload "$TAG" release-apks/*.apk --clobber
+          else
+            echo "Creating new release $TAG..."
+            gh release create "$TAG" release-apks/*.apk \
+              --title "$TITLE" \
+              --notes-file release_notes.md \
+              --draft=false \
+              --prerelease=false
+          fi
+          echo "Release completed successfully!"

@@ -8,13 +8,18 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.CenterFocusStrong
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -96,12 +101,21 @@ fun MainApp(viewModel: MainViewModel = viewModel()) {
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
             // Hide bottom bar when viewing full camera scan with captured image if desired, or keep it accessible
-            NavigationBar(modifier = Modifier.testTag("app_bottom_bar")) {
+            NavigationBar(
+                modifier = Modifier.testTag("app_bottom_bar"),
+                containerColor = MaterialTheme.colorScheme.surface,
+                tonalElevation = 6.dp
+            ) {
                 NavigationBarItem(
                     selected = currentScreen == AppScreen.LENS,
                     onClick = { currentScreen = AppScreen.LENS },
                     icon = { Icon(Icons.Default.CenterFocusStrong, contentDescription = "Camera Lens") },
                     label = { Text("Lens") },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                    ),
                     modifier = Modifier.testTag("nav_item_lens")
                 )
                 NavigationBarItem(
@@ -109,20 +123,52 @@ fun MainApp(viewModel: MainViewModel = viewModel()) {
                     onClick = { currentScreen = AppScreen.TRANSLATE },
                     icon = { Icon(Icons.Default.Translate, contentDescription = "Translate") },
                     label = { Text("Translate") },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                    ),
                     modifier = Modifier.testTag("nav_item_translate")
                 )
                 NavigationBarItem(
                     selected = currentScreen == AppScreen.DICTIONARY,
                     onClick = { currentScreen = AppScreen.DICTIONARY },
-                    icon = { Icon(Icons.Default.MenuBook, contentDescription = "Dictionary") },
+                    icon = { Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = "Dictionary") },
                     label = { Text("Dictionary") },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                    ),
                     modifier = Modifier.testTag("nav_item_dictionary")
                 )
                 NavigationBarItem(
                     selected = currentScreen == AppScreen.SAVED,
                     onClick = { currentScreen = AppScreen.SAVED },
-                    icon = { Icon(Icons.Default.Bookmarks, contentDescription = "Saved") },
+                    icon = {
+                        if (savedWords.isNotEmpty()) {
+                            BadgedBox(
+                                badge = {
+                                    Badge(
+                                        containerColor = MaterialTheme.colorScheme.secondary,
+                                        contentColor = MaterialTheme.colorScheme.onSecondary
+                                    ) {
+                                        Text(text = if (savedWords.size > 99) "99+" else savedWords.size.toString())
+                                    }
+                                }
+                            ) {
+                                Icon(Icons.Default.Bookmarks, contentDescription = "Saved")
+                            }
+                        } else {
+                            Icon(Icons.Default.Bookmarks, contentDescription = "Saved")
+                        }
+                    },
                     label = { Text("Saved") },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                    ),
                     modifier = Modifier.testTag("nav_item_saved")
                 )
             }

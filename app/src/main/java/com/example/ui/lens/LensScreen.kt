@@ -54,6 +54,7 @@ import androidx.compose.foundation.verticalScroll
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
@@ -65,7 +66,6 @@ import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Translate
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.material3.Button
@@ -646,7 +646,7 @@ fun CapturedResultView(
                                     modifier = Modifier.size(34.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.VolumeUp,
+                                        imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                                         contentDescription = "Speak Japanese",
                                         tint = MaterialTheme.colorScheme.primary
                                     )

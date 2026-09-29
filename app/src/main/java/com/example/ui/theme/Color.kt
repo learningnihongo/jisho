@@ -2,29 +2,46 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val IndigoPrimary = Color(0xFF1D5DDF)
+// Light Theme - Japanese Ai-iro Indigo & Torii Vermilion
+val JapaneseIndigo = Color(0xFF1E40AF)
 val IndigoOnPrimary = Color(0xFFFFFFFF)
-val IndigoPrimaryContainer = Color(0xFFDCE2FF)
-val IndigoOnPrimaryContainer = Color(0xFF001947)
+val IndigoPrimaryContainer = Color(0xFFDBEAFE)
+val IndigoOnPrimaryContainer = Color(0xFF1E3A8A)
 
-val CoralSecondary = Color(0xFF00687A)
-val CoralSecondaryContainer = Color(0xFFACEDFF)
-val CoralOnSecondaryContainer = Color(0xFF001F26)
+val ToriiVermilion = Color(0xFFDC2626)
+val VermilionOnSecondary = Color(0xFFFFFFFF)
+val VermilionSecondaryContainer = Color(0xFFFEE2E2)
+val VermilionOnSecondaryContainer = Color(0xFF991B1B)
 
-val SakuraTertiary = Color(0xFF904A67)
-val SakuraTertiaryContainer = Color(0xFFFFD8E5)
-val SakuraOnTertiaryContainer = Color(0xFF3B0723)
+val MatchaGreen = Color(0xFF0D9488)
+val MatchaOnTertiary = Color(0xFFFFFFFF)
+val MatchaTertiaryContainer = Color(0xFFCCFBF1)
+val MatchaOnTertiaryContainer = Color(0xFF115E59)
+
+val LightBackground = Color(0xFFF8FAFC)
+val LightSurface = Color(0xFFFFFFFF)
+val LightSurfaceVariant = Color(0xFFF1F5F9)
+val LightOutline = Color(0xFF94A3B8)
+val LightOutlineVariant = Color(0xFFE2E8F0)
 
 // Dark Theme Colors
-val IndigoPrimaryDark = Color(0xFFB5C4FF)
-val IndigoOnPrimaryDark = Color(0xFF00297B)
-val IndigoPrimaryContainerDark = Color(0xFF003DA7)
-val IndigoOnPrimaryContainerDark = Color(0xFFDCE2FF)
+val IndigoPrimaryDark = Color(0xFF93C5FD)
+val IndigoOnPrimaryDark = Color(0xFF172554)
+val IndigoPrimaryContainerDark = Color(0xFF1E3A8A)
+val IndigoOnPrimaryContainerDark = Color(0xFFDBEAFE)
 
-val CoralSecondaryDark = Color(0xFF53D7F3)
-val CoralSecondaryContainerDark = Color(0xFF004E5C)
-val CoralOnSecondaryContainerDark = Color(0xFFACEDFF)
+val ToriiVermilionDark = Color(0xFFF87171)
+val VermilionOnSecondaryDark = Color(0xFF450A0A)
+val VermilionSecondaryContainerDark = Color(0xFF7F1D1D)
+val VermilionOnSecondaryContainerDark = Color(0xFFFEE2E2)
 
-val SakuraTertiaryDark = Color(0xFFFFAFD1)
-val SakuraTertiaryContainerDark = Color(0xFF72334F)
-val SakuraOnTertiaryContainerDark = Color(0xFFFFD8E5)
+val MatchaGreenDark = Color(0xFF5EEAD4)
+val MatchaOnTertiaryDark = Color(0xFF042F2E)
+val MatchaTertiaryContainerDark = Color(0xFF134E4A)
+val MatchaOnTertiaryContainerDark = Color(0xFFCCFBF1)
+
+val DarkBackground = Color(0xFF0B0F19)
+val DarkSurface = Color(0xFF111827)
+val DarkSurfaceVariant = Color(0xFF1F2937)
+val DarkOutline = Color(0xFF64748B)
+val DarkOutlineVariant = Color(0xFF374151)
