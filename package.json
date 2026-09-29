@@ -1,0 +1,11 @@
+{
+  "name": "lens-jisho",
+  "version": "1.0.0",
+  "description": "Japanese camera lens OCR with Jisho.org dictionary lookup and Google Translate integration.",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "echo 'Build successful'"
+  },
+  "dependencies": {}
+}

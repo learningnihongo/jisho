@@ -1,0 +1,1491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>LensJisho - Japanese Lens & Translate</title>
+  <!-- Material Symbols & Fonts -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Sans+Myanmar:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" />
+  <style>
+    :root {
+      --primary: #1D5DDF;
+      --on-primary: #FFFFFF;
+      --primary-container: #E8EEFF;
+      --on-primary-container: #001947;
+      --secondary: #00687A;
+      --surface: #FFFFFF;
+      --surface-variant: #F1F3FA;
+      --on-surface: #1B1B1F;
+      --on-surface-variant: #44474E;
+      --outline: #74777F;
+      --background: #F8F9FE;
+      --card-radius: 20px;
+      --chip-radius: 12px;
+      --burmese-color: #00796B;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --primary: #86A8FF;
+        --on-primary: #002875;
+        --primary-container: #003B9E;
+        --on-primary-container: #D9E2FF;
+        --surface: #1E1F25;
+        --surface-variant: #2A2B33;
+        --on-surface: #E3E2E6;
+        --on-surface-variant: #C4C6D0;
+        --outline: #8E9099;
+        --background: #121318;
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: 'Plus Jakarta Sans', 'Noto Sans JP', 'Noto Sans Myanmar', sans-serif;
+      background: var(--background);
+      color: var(--on-surface);
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    #app-container {
+      width: 100%;
+      max-width: 480px;
+      height: 100%;
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 0 40px rgba(0,0,0,0.08);
+    }
+
+    /* Screen Views */
+    .screen {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      overflow-y: auto;
+      padding-bottom: 74px;
+    }
+    .screen.active { display: flex; }
+
+    /* Top App Bar */
+    .app-header {
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      background: var(--surface);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .app-title-group { display: flex; align-items: center; gap: 10px; }
+    .app-logo {
+      width: 38px; height: 38px;
+      background: linear-gradient(135deg, var(--primary), #4F46E5);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-weight: 800; font-size: 19px;
+      box-shadow: 0 4px 10px rgba(29, 93, 223, 0.3);
+    }
+    .app-title { font-size: 17px; font-weight: 800; letter-spacing: -0.3px; }
+    .app-subtitle { font-size: 11px; color: var(--outline); font-weight: 500; }
+
+    /* Bottom Navigation */
+    .bottom-nav {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 68px;
+      background: var(--surface);
+      border-top: 1px solid rgba(0,0,0,0.07);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      z-index: 20;
+    }
+    .nav-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      background: none;
+      border: none;
+      color: var(--outline);
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 20px;
+      transition: all 0.2s;
+    }
+    .nav-btn.active { color: var(--primary); }
+    .nav-btn.active .material-symbols-rounded {
+      font-variation-settings: 'FILL' 1;
+      transform: scale(1.1);
+    }
+
+    /* Lens Viewport */
+    .lens-viewport {
+      position: relative;
+      width: 100%;
+      height: 380px;
+      background: #0D0F14;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    #lens-video, #lens-preview-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .lens-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .viewfinder {
+      width: 80%;
+      height: 68%;
+      border: 2px dashed rgba(255,255,255,0.7);
+      border-radius: 24px;
+      position: relative;
+      box-shadow: 0 0 0 1000px rgba(0,0,0,0.45);
+    }
+    .laser-line {
+      position: absolute;
+      left: 8px; right: 8px;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #00E5FF, transparent);
+      box-shadow: 0 0 10px #00E5FF;
+      animation: scan 2.2s ease-in-out infinite alternate;
+    }
+    @keyframes scan {
+      0% { top: 10%; }
+      100% { top: 88%; }
+    }
+
+    /* Interactive Bounding Boxes Overlay on image */
+    .boxes-container {
+      position: absolute;
+      inset: 0;
+      pointer-events: auto;
+    }
+    .ocr-box {
+      position: absolute;
+      background: rgba(29, 93, 223, 0.28);
+      border: 2px solid #00E5FF;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 11px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      transition: all 0.15s;
+    }
+    .ocr-box:hover, .ocr-box:active {
+      background: rgba(29, 93, 223, 0.7);
+      border-color: #FFFFFF;
+      transform: scale(1.05);
+    }
+
+    .lens-controls {
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      background: var(--surface);
+    }
+    .shutter-btn {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      border: 4px solid var(--primary-container);
+      background: var(--primary);
+      color: white;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(29, 93, 223, 0.35);
+      transition: transform 0.15s;
+    }
+    .shutter-btn:active { transform: scale(0.92); }
+    .icon-btn {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      border: none;
+      background: var(--surface-variant);
+      color: var(--on-surface);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .icon-btn:active { transform: scale(0.92); }
+
+    /* Section Cards */
+    .section-card {
+      margin: 12px 16px;
+      padding: 16px;
+      background: var(--surface-variant);
+      border-radius: var(--card-radius);
+    }
+    .translation-box {
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+      border-radius: var(--card-radius);
+      padding: 18px;
+      margin: 12px 16px;
+    }
+    .chip-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .word-chip {
+      padding: 8px 14px;
+      background: var(--surface);
+      border-radius: var(--chip-radius);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--primary);
+      border: 1px solid rgba(0,0,0,0.08);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+    .word-chip:active { transform: scale(0.95); background: var(--primary-container); }
+    .word-chip .badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      background: var(--primary-container);
+      color: var(--primary);
+      border-radius: 6px;
+    }
+
+    /* Target Language Switcher */
+    .lang-switcher {
+      display: inline-flex;
+      background: rgba(0,0,0,0.06);
+      padding: 3px;
+      border-radius: 12px;
+      gap: 3px;
+    }
+    .lang-tab {
+      padding: 5px 11px;
+      border-radius: 9px;
+      font-size: 12px;
+      font-weight: 700;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      color: var(--on-surface-variant);
+    }
+    .lang-tab.active {
+      background: var(--primary);
+      color: white;
+    }
+
+    /* Jisho Detail Bottom Sheet */
+    .sheet-scrim {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 50;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    .sheet-scrim.open { opacity: 1; pointer-events: auto; }
+    .bottom-sheet {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      background: var(--surface);
+      border-radius: 28px 28px 0 0;
+      padding: 24px 20px 40px;
+      z-index: 60;
+      max-height: 88%;
+      overflow-y: auto;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.1, 0.9, 0.2, 1);
+    }
+    .bottom-sheet.open { transform: translateY(0); }
+    .sheet-handle {
+      width: 44px; height: 5px;
+      background: rgba(0,0,0,0.15);
+      border-radius: 4px;
+      margin: -10px auto 16px;
+    }
+
+    /* Buttons */
+    .btn-row { display: flex; gap: 10px; margin-top: 14px; }
+    .btn {
+      flex: 1;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: none;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: all 0.15s;
+    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-outlined { background: transparent; border: 1.5px solid var(--outline); color: var(--on-surface); }
+    .btn-tertiary { background: rgba(0,121,107,0.12); color: #00796B; }
+
+    /* Inputs */
+    .text-area {
+      width: 100%;
+      min-height: 100px;
+      border: 1.5px solid rgba(0,0,0,0.12);
+      border-radius: 16px;
+      padding: 14px;
+      font-size: 16px;
+      font-family: inherit;
+      background: var(--surface);
+      color: var(--on-surface);
+      resize: vertical;
+      outline: none;
+    }
+    .text-area:focus { border-color: var(--primary); }
+
+    .jlpt-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 800;
+      color: white;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .jlpt-N5 { background: #2E7D32; }
+    .jlpt-N4 { background: #00897B; }
+    .jlpt-N3 { background: #1E88E5; }
+    .jlpt-N2 { background: #F57C00; }
+    .jlpt-N1 { background: #D32F2F; }
+
+    /* Kanji Breakdown Card */
+    .kanji-item-card {
+      background: var(--surface);
+      border-radius: 14px;
+      padding: 14px;
+      border: 1px solid rgba(0,0,0,0.06);
+      display: flex;
+      gap: 14px;
+      align-items: center;
+    }
+    .kanji-char-box {
+      width: 52px; height: 52px;
+      border-radius: 14px;
+      background: var(--primary-container);
+      color: var(--primary);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+
+    /* Ruby furigana styling */
+    ruby { ruby-position: over; }
+    rt { font-size: 11px; color: var(--primary); font-weight: 600; }
+
+    /* Flashcard Quiz Mode */
+    .quiz-card {
+      background: linear-gradient(135deg, var(--surface), var(--surface-variant));
+      border-radius: 20px;
+      padding: 24px;
+      text-align: center;
+      border: 2px solid var(--primary-container);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="app-title-group">
+        <div class="app-logo">字</div>
+        <div>
+          <h1 class="app-title">LensJisho</h1>
+          <p class="app-subtitle">Japanese Lens • Jisho • Translate</p>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button id="tts-speed-btn" onclick="toggleTtsSpeed()" class="icon-btn" style="width:34px; height:34px; font-size:11px; font-weight:700;" title="Audio Pronunciation Speed">
+          1.0x
+        </button>
+        <div class="lang-switcher">
+          <button class="lang-tab active" id="lang-btn-my" onclick="setAppLanguage('my')">🇲🇲 ဗမာ</button>
+          <button class="lang-tab" id="lang-btn-en" onclick="setAppLanguage('en')">🇬🇧 EN</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- SCREEN 1: LENS (Camera OCR & Word Finder) -->
+    <section id="screen-lens" class="screen active">
+      <div class="lens-viewport">
+        <video id="lens-video" autoplay playsinline style="display:none;"></video>
+        <img id="lens-preview-img" style="display:none;" />
+        <canvas id="lens-canvas" style="display:none;"></canvas>
+
+        <div id="empty-camera-view" style="display:flex; flex-direction:column; align-items:center; color:white; gap:10px;">
+          <span class="material-symbols-rounded" style="font-size: 52px; opacity: 0.8;">photo_camera</span>
+          <p style="font-size: 13px; font-weight: 600;">Point at Japanese text or upload photo</p>
+        </div>
+
+        <div class="lens-overlay" id="lens-overlay">
+          <div class="viewfinder" id="lens-viewfinder">
+            <div class="laser-line"></div>
+          </div>
+        </div>
+
+        <!-- Overlaid Interactive Bounding Boxes -->
+        <div class="boxes-container" id="lens-boxes-container"></div>
+      </div>
+
+      <!-- Camera / Action Controls -->
+      <div class="lens-controls">
+        <label class="icon-btn" title="Upload Japanese Photo">
+          <span class="material-symbols-rounded">image</span>
+          <input type="file" id="file-input" accept="image/*" style="display:none;" onchange="handleFileSelect(event)">
+        </label>
+        <button class="shutter-btn" id="shutter-btn" onclick="captureAndScan()" title="Scan Japanese text">
+          <span class="material-symbols-rounded" style="font-size: 32px;">center_focus_strong</span>
+        </button>
+        <button class="icon-btn" onclick="useDemoImage()" title="Try Demo Japanese text">
+          <span style="font-size: 11px; font-weight: 800; line-height: 1.1; text-align: center;">Sample<br>日本語</span>
+        </button>
+      </div>
+
+      <!-- OCR Status, Recognized Japanese Text, & Google Translate Result -->
+      <div id="lens-result-area" style="display: none; padding-bottom: 20px;">
+        <!-- 1. Recognized Japanese Text Card -->
+        <div class="section-card" id="lens-original-card" style="border: 1.5px solid rgba(29, 93, 223, 0.25); background: var(--surface); margin-top: 14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:16px;">🇯🇵</span>
+              <strong style="font-size: 13px; color: var(--primary);">Recognized Japanese Text (ဂျပန်စာသား)</strong>
+            </div>
+            <div style="display:flex; gap:4px;">
+              <button onclick="speakText(currentScannedText)" class="icon-btn" style="width:32px; height:32px;" title="Listen (အသံထွက်)">
+                <span class="material-symbols-rounded" style="font-size: 18px;">volume_up</span>
+              </button>
+              <button onclick="copyToClipboard(currentScannedText, 'ဂျပန်စာသား ကူးယူပြီးပါပြီ (Copied)')" class="icon-btn" style="width:32px; height:32px;" title="Copy (ကူးယူမည်)">
+                <span class="material-symbols-rounded" style="font-size: 18px;">content_copy</span>
+              </button>
+            </div>
+          </div>
+          <p id="lens-original-text" style="font-size: 18px; font-weight: 700; line-height: 1.5; color: var(--on-surface); word-break: break-word;"></p>
+          <div class="btn-row" style="margin-top: 12px;">
+            <button class="btn btn-primary" onclick="searchCurrentScannedInJisho()" style="font-size:12px; padding:9px 14px;">
+              <span class="material-symbols-rounded" style="font-size: 16px;">search</span> Jisho တွင် ရှာဖွေမည်
+            </button>
+            <button class="btn btn-outlined" onclick="openJishoWeb(currentScannedText)" style="font-size:12px; padding:9px 12px;">
+              <span class="material-symbols-rounded" style="font-size: 16px;">open_in_new</span> Jisho.org Web
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. Translation Text Results Card -->
+        <div class="translation-box" id="lens-translation-box" style="margin-top: 12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span class="material-symbols-rounded" style="font-size: 20px;">translate</span>
+              <strong id="lens-trans-label" style="font-size: 13px;">ဘာသာပြန်ဆိုချက် (Translation Result)</strong>
+            </div>
+            <button onclick="copyToClipboard(document.getElementById('lens-trans-text').textContent, 'ဘာသာပြန် ကူးယူပြီးပါပြီ (Copied)')" class="icon-btn" style="width:32px; height:32px; background:transparent;" title="Copy Translation">
+              <span class="material-symbols-rounded" style="font-size: 18px;">content_copy</span>
+            </button>
+          </div>
+          <p id="lens-trans-text" style="font-size: 17px; font-weight: 700; line-height: 1.4;"></p>
+          <div class="btn-row" style="margin-top: 10px;">
+            <button class="btn btn-outlined" onclick="openExternalGoogleTranslate(currentScannedText)" style="font-size:12px; padding:8px 12px; border-color: rgba(0,0,0,0.2);">
+              <span class="material-symbols-rounded" style="font-size: 16px;">open_in_new</span> Google Translate
+            </button>
+            <button class="btn btn-tertiary" onclick="openGrammarAnalysis(currentScannedText)" style="font-size:12px; padding:8px 12px;">
+              <span class="material-symbols-rounded" style="font-size: 16px;">psychology</span> Grammar Guide (သဒ္ဒါ)
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. Detected Japanese Words for Jisho.org -->
+        <div class="section-card" style="margin-top: 12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="font-size: 13px; font-weight: 800; color: var(--outline); text-transform: uppercase;">
+              Detected Words (Jisho.org တွင် တစ်လုံးချင်း စစ်ဆေးရန်):
+            </h3>
+            <span style="font-size: 11px; color: var(--primary); font-weight: 700;" id="words-count-label"></span>
+          </div>
+          <div class="chip-container" id="lens-words-chips"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN 2: TRANSLATE -->
+    <section id="screen-translate" class="screen">
+      <div style="padding: 16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h2 style="font-size: 16px; font-weight: 800;">Japanese Translator</h2>
+          <span style="font-size: 12px; color: var(--primary); font-weight: 700;">JA → <span id="trans-target-label">MY</span></span>
+        </div>
+
+        <div style="position:relative;">
+          <textarea id="translate-input" class="text-area" placeholder="Enter Japanese text or sentence (e.g. 日本語の勉強はとても面白いです)…"></textarea>
+          <button onclick="startVoiceInput()" id="mic-btn" class="icon-btn" style="position:absolute; right:10px; bottom:12px; width:36px; height:36px;" title="Voice input in Japanese">
+            <span class="material-symbols-rounded" style="font-size: 20px;">mic</span>
+          </button>
+        </div>
+
+        <!-- Sample Phrases -->
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin: 10px 0;">
+          <span style="font-size: 11px; color: var(--outline);">Try samples:</span>
+          <button class="word-chip" style="font-size: 12px; padding: 4px 8px;" onclick="setTranslateSample('日本語の勉強はとても面白いです。')">日本語の勉強</button>
+          <button class="word-chip" style="font-size: 12px; padding: 4px 8px;" onclick="setTranslateSample('桜が綺麗に咲いています。')">桜の花</button>
+          <button class="word-chip" style="font-size: 12px; padding: 4px 8px;" onclick="setTranslateSample('東京へ旅行に行きたいです。')">東京旅行</button>
+        </div>
+
+        <div id="translate-tokens-area" style="display:none; margin: 10px 0;">
+          <p style="font-size: 11px; font-weight: 700; color: var(--primary); margin-bottom: 6px;">Tap words to inspect in Jisho:</p>
+          <div class="chip-container" id="translate-tokens-chips"></div>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:10px;">
+          <button class="btn btn-primary" onclick="doTranslate()">
+            <span class="material-symbols-rounded">translate</span> Translate Now
+          </button>
+          <button class="btn btn-tertiary" onclick="openGrammarAnalysis(document.getElementById('translate-input').value)">
+            <span class="material-symbols-rounded">psychology</span> Grammar Breakdown
+          </button>
+        </div>
+
+        <div id="translate-result-card" class="translation-box" style="display:none; margin: 16px 0 0;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+            <strong style="font-size: 13px;">Result</strong>
+            <div style="display:flex; gap:6px;">
+              <button onclick="speakText(document.getElementById('translate-input').value)" class="icon-btn" style="width:32px; height:32px; background:transparent;">
+                <span class="material-symbols-rounded" style="font-size: 18px;">volume_up</span>
+              </button>
+              <button onclick="copyTranslation()" class="icon-btn" style="width:32px; height:32px; background:transparent;">
+                <span class="material-symbols-rounded" style="font-size: 18px;">content_copy</span>
+              </button>
+            </div>
+          </div>
+          <p id="translate-output-text" style="font-size: 18px; font-weight: 700;"></p>
+          <div class="btn-row">
+            <button class="btn btn-outlined" onclick="openExternalGoogleTranslate(document.getElementById('translate-input').value)" style="font-size:12px; padding:8px 12px; border-color: rgba(0,0,0,0.2);">
+              <span class="material-symbols-rounded" style="font-size: 16px;">open_in_new</span> Open in Google Translate
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN 3: DICTIONARY -->
+    <section id="screen-dictionary" class="screen">
+      <div style="padding: 16px;">
+        <div style="position:relative;">
+          <input type="text" id="dict-search" class="text-area" style="min-height:50px; padding-left: 44px; padding-right:44px;" placeholder="Search Kanji, Kana, Romaji or English…" oninput="handleDictSearchInput(event)">
+          <span class="material-symbols-rounded" style="position:absolute; left:14px; top:13px; color:var(--primary);">search</span>
+        </div>
+
+        <!-- Filter Chips -->
+        <div style="display:flex; gap:6px; overflow-x:auto; padding: 12px 0 6px;">
+          <button class="word-chip active" onclick="setJlptFilter('All', this)">All</button>
+          <button class="word-chip" onclick="setJlptFilter('Common', this)">Common</button>
+          <button class="word-chip" onclick="setJlptFilter('N5', this)">N5</button>
+          <button class="word-chip" onclick="setJlptFilter('N4', this)">N4</button>
+          <button class="word-chip" onclick="setJlptFilter('N3', this)">N3</button>
+          <button class="word-chip" onclick="setJlptFilter('N2', this)">N2</button>
+          <button class="word-chip" onclick="setJlptFilter('N1', this)">N1</button>
+        </div>
+
+        <!-- Suggestions / Results -->
+        <div id="dict-results" style="margin-top: 14px; display:flex; flex-direction:column; gap:10px;"></div>
+      </div>
+    </section>
+
+    <!-- SCREEN 4: SAVED & FLASHCARD QUIZ -->
+    <section id="screen-saved" class="screen">
+      <div style="padding: 16px;">
+        <div style="display:flex; gap:8px; border-bottom:1px solid rgba(0,0,0,0.08); padding-bottom:10px; margin-bottom:14px;">
+          <button class="btn btn-primary" id="tab-btn-saved" style="padding:8px 12px; font-size:12px;" onclick="switchSavedTab('saved')">Saved Words</button>
+          <button class="btn btn-outlined" id="tab-btn-quiz" style="padding:8px 12px; font-size:12px;" onclick="switchSavedTab('quiz')">Quiz Practice</button>
+          <button class="btn btn-outlined" id="tab-btn-history" style="padding:8px 12px; font-size:12px;" onclick="switchSavedTab('history')">History</button>
+        </div>
+
+        <div id="saved-list-container" style="display:flex; flex-direction:column; gap:10px;"></div>
+        
+        <!-- Quiz Practice Mode -->
+        <div id="quiz-container" style="display:none; flex-direction:column;">
+          <div class="quiz-card" id="quiz-card">
+            <span style="font-size:11px; font-weight:800; color:var(--primary); text-transform:uppercase;">Vocabulary Flashcard</span>
+            <h2 id="quiz-word" style="font-size: 34px; font-weight:800; margin:14px 0 6px;">日本語</h2>
+            <div id="quiz-answer" style="display:none; margin-top:10px;">
+              <p id="quiz-reading" style="font-size:18px; color:var(--primary); font-weight:700;">【にほんご】</p>
+              <p id="quiz-meaning" style="font-size:15px; font-weight:600; margin-top:4px;">Japanese language (ဂျပန်ဘာသာစကား)</p>
+            </div>
+            <div class="btn-row" style="margin-top:20px;">
+              <button class="btn btn-outlined" onclick="revealQuizAnswer()">Reveal Answer</button>
+              <button class="btn btn-primary" onclick="nextQuizCard()">Next Word →</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="history-list-container" style="display:none; flex-direction:column; gap:10px;"></div>
+      </div>
+    </section>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="bottom-nav">
+      <button class="nav-btn active" onclick="switchNav('lens')">
+        <span class="material-symbols-rounded">center_focus_strong</span>
+        <span>Lens</span>
+      </button>
+      <button class="nav-btn" onclick="switchNav('translate')">
+        <span class="material-symbols-rounded">translate</span>
+        <span>Translate</span>
+      </button>
+      <button class="nav-btn" onclick="switchNav('dictionary')">
+        <span class="material-symbols-rounded">menu_book</span>
+        <span>Dictionary</span>
+      </button>
+      <button class="nav-btn" onclick="switchNav('saved')">
+        <span class="material-symbols-rounded">bookmarks</span>
+        <span>Saved</span>
+      </button>
+    </nav>
+
+    <!-- Jisho Detail Bottom Sheet Modal -->
+    <div class="sheet-scrim" id="sheet-scrim" onclick="closeJishoSheet()"></div>
+    <div class="bottom-sheet" id="jisho-bottom-sheet">
+      <div class="sheet-handle"></div>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <span style="font-size: 11px; font-weight:800; color:var(--primary); text-transform:uppercase;">Jisho.org Dictionary</span>
+          <h2 id="sheet-word-title" style="font-size: 30px; font-weight: 800;">日本語</h2>
+          <p id="sheet-reading" style="font-size: 16px; color: var(--primary); font-weight: 600;">にほんご</p>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button onclick="speakText(currentModalWord)" class="icon-btn">
+            <span class="material-symbols-rounded">volume_up</span>
+          </button>
+          <button id="modal-bookmark-btn" onclick="toggleSaveCurrentWord()" class="icon-btn">
+            <span class="material-symbols-rounded" id="bookmark-icon">bookmark_border</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Myanmar Meaning Box -->
+      <div id="sheet-burmese-card" style="margin: 14px 0; padding:14px; background:rgba(0,121,107,0.12); border-radius:14px; border-left:4px solid #00796B;">
+        <span style="font-size: 11px; font-weight:800; color:#00796B;">🇲🇲 မြန်မာဘာသာ အဓိပ္ပာယ်</span>
+        <p id="sheet-burmese-text" style="font-size: 16px; font-weight:700; color:#004D40; margin-top:2px;">ဂျပန်ဘာသာစကား</p>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-outlined" onclick="openJishoWeb(currentModalWord)">
+          <span class="material-symbols-rounded">open_in_browser</span> Jisho.org
+        </button>
+        <button class="btn btn-primary" onclick="openExternalGoogleTranslate(currentModalWord)">
+          <span class="material-symbols-rounded">translate</span> Google Translate
+        </button>
+      </div>
+
+      <!-- Kanji Characters Breakdown -->
+      <div id="sheet-kanji-section" style="margin-top:18px; display:none;">
+        <h4 style="font-size:12px; font-weight:800; color:var(--outline); text-transform:uppercase; margin-bottom:8px;">Kanji Breakdown</h4>
+        <div id="sheet-kanji-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+
+      <div id="sheet-content-area" style="margin-top: 18px; display:flex; flex-direction:column; gap:12px;"></div>
+    </div>
+
+    <!-- Grammar Guide Modal -->
+    <div class="sheet-scrim" id="grammar-scrim" onclick="closeGrammarSheet()"></div>
+    <div class="bottom-sheet" id="grammar-sheet">
+      <div class="sheet-handle"></div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <span style="font-size: 11px; font-weight:800; color:var(--primary); text-transform:uppercase;">Japanese Grammar Guide</span>
+          <h2 style="font-size: 20px; font-weight:800;">သဒ္ဒါရှင်းလင်းချက် (Grammar Breakdown)</h2>
+        </div>
+        <button onclick="closeGrammarSheet()" class="icon-btn" style="width:34px; height:34px;">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+      <div id="grammar-content" style="margin-top: 16px; display:flex; flex-direction:column; gap:12px;">
+        <p style="color:var(--outline); font-size:13px;">Analyzing Japanese grammar & sentence structure…</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let appTargetLang = 'my';
+    let currentScannedText = '';
+    let currentModalWord = '';
+    let currentModalData = null;
+    let ttsRate = 1.0;
+    let savedWordsStore = JSON.parse(localStorage.getItem('lens_jisho_saved_words') || '[]');
+    let scanHistoryStore = JSON.parse(localStorage.getItem('lens_jisho_scan_history') || '[]');
+    let activeJlptFilter = 'All';
+    let dictSearchTimer = null;
+    let currentQuizIndex = 0;
+
+    // Navigation
+    function switchNav(screenName) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(`screen-${screenName}`).classList.add('active');
+      event.currentTarget.classList.add('active');
+
+      if (screenName === 'saved') renderSavedScreen();
+      if (screenName === 'dictionary' && !document.getElementById('dict-results').children.length) {
+        loadDictionarySuggestions();
+      }
+    }
+
+    function setAppLanguage(lang) {
+      appTargetLang = lang;
+      document.getElementById('lang-btn-my').classList.toggle('active', lang === 'my');
+      document.getElementById('lang-btn-en').classList.toggle('active', lang === 'en');
+      document.getElementById('trans-target-label').textContent = lang === 'my' ? 'MY' : 'EN';
+      document.getElementById('lens-trans-label').textContent = lang === 'my' ? 'Google Translate (မြန်မာ)' : 'Google Translate (English)';
+
+      if (currentScannedText) {
+        fetchTranslation(currentScannedText, lang).then(res => {
+          document.getElementById('lens-trans-text').textContent = res;
+        });
+      }
+    }
+
+    function toggleTtsSpeed() {
+      ttsRate = ttsRate === 1.0 ? 0.75 : 1.0;
+      document.getElementById('tts-speed-btn').textContent = `${ttsRate}x`;
+    }
+
+    // Camera & Lens Scanner
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        const video = document.getElementById('lens-video');
+        video.srcObject = stream;
+        video.style.display = 'block';
+        document.getElementById('empty-camera-view').style.display = 'none';
+      } catch (err) {
+        console.log('Camera error or permission denied:', err);
+      }
+    }
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      startCamera();
+    }
+
+    function handleFileSelect(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = document.getElementById('lens-preview-img');
+        img.src = event.target.result;
+        img.style.display = 'block';
+        document.getElementById('lens-video').style.display = 'none';
+        document.getElementById('empty-camera-view').style.display = 'none';
+        processImageOCR(event.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function useDemoImage() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 600;
+      canvas.height = 360;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#1B1B1F';
+      ctx.font = 'bold 30px "Noto Sans JP", sans-serif';
+      ctx.fillText('日本語の勉強はとても面白いです。', 40, 110);
+      ctx.fillText('桜の花が綺麗に咲いています。', 40, 190);
+      ctx.fillText('毎朝、コーヒーを飲みます。', 40, 270);
+
+      const dataUrl = canvas.toDataURL('image/jpeg');
+      const img = document.getElementById('lens-preview-img');
+      img.src = dataUrl;
+      img.style.display = 'block';
+      document.getElementById('lens-video').style.display = 'none';
+      document.getElementById('empty-camera-view').style.display = 'none';
+      processImageOCR(dataUrl);
+    }
+
+    async function captureAndScan() {
+      const video = document.getElementById('lens-video');
+      if (video.style.display !== 'none' && video.videoWidth) {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        processImageOCR(dataUrl);
+      } else {
+        useDemoImage();
+      }
+    }
+
+    async function processImageOCR(dataUrl) {
+      document.getElementById('lens-result-area').style.display = 'block';
+      document.getElementById('lens-trans-text').textContent = 'Analyzing Japanese text with Lens OCR…';
+      document.getElementById('lens-boxes-container').innerHTML = '';
+
+      try {
+        const res = await fetch('/api/ocr', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: dataUrl, mimeType: 'image/jpeg' })
+        });
+        const data = await res.json();
+        
+        currentScannedText = data.fullText || '';
+        document.getElementById('lens-original-text').textContent = currentScannedText || 'No text recognized.';
+        const translation = appTargetLang === 'my' ? (data.translationMy || '') : (data.translationEn || '');
+        document.getElementById('lens-trans-text').textContent = translation || 'No text recognized.';
+
+        // Render Interactive Bounding Boxes directly over image
+        const boxesContainer = document.getElementById('lens-boxes-container');
+        boxesContainer.innerHTML = '';
+        if (data.tokens && data.tokens.length) {
+          data.tokens.forEach(t => {
+            if (t.box) {
+              const boxEl = document.createElement('div');
+              boxEl.className = 'ocr-box';
+              boxEl.style.top = `${t.box.ymin}%`;
+              boxEl.style.left = `${t.box.xmin}%`;
+              boxEl.style.width = `${Math.max(12, t.box.xmax - t.box.xmin)}%`;
+              boxEl.style.height = `${Math.max(10, t.box.ymax - t.box.ymin)}%`;
+              boxEl.title = `${t.word}: ${t.meaning || ''}`;
+              boxEl.textContent = t.word;
+              boxEl.onclick = () => openJishoSheet(t.word);
+              boxesContainer.appendChild(boxEl);
+            }
+          });
+        }
+
+        // Render Word Chips
+        const chipsArea = document.getElementById('lens-words-chips');
+        chipsArea.innerHTML = '';
+        const words = data.words || extractJapaneseTokens(currentScannedText);
+        document.getElementById('words-count-label').textContent = `${words.length} words found`;
+        words.forEach(word => {
+          const chip = document.createElement('button');
+          chip.className = 'word-chip';
+          chip.innerHTML = `${word} <span class="badge">🔍</span>`;
+          chip.onclick = () => openJishoSheet(word);
+          chipsArea.appendChild(chip);
+        });
+
+        // Save to scan history
+        if (currentScannedText && translation) {
+          scanHistoryStore.unshift({
+            id: Date.now(),
+            original: currentScannedText,
+            translated: translation,
+            lang: appTargetLang,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          });
+          localStorage.setItem('lens_jisho_scan_history', JSON.stringify(scanHistoryStore.slice(0, 50)));
+        }
+      } catch (err) {
+        document.getElementById('lens-trans-text').textContent = 'OCR recognition failed. Please try again.';
+      }
+    }
+
+    function extractJapaneseTokens(text) {
+      if (!text) return [];
+      const matches = text.match(/[\u4E00-\u9FAF\u3040-\u309F\u30A0-\u30FF]+/g) || [];
+      return [...new Set(matches)];
+    }
+
+    function searchCurrentScannedInJisho() {
+      if (!currentScannedText) return;
+      const tokens = extractJapaneseTokens(currentScannedText);
+      const target = tokens.length ? tokens[0] : currentScannedText.slice(0, 10);
+      openJishoSheet(target);
+    }
+
+    function copyToClipboard(text, successMsg) {
+      if (!text) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          alert(successMsg || 'Copied to clipboard!');
+        }).catch(() => {
+          prompt('Copy text:', text);
+        });
+      } else {
+        prompt('Copy text:', text);
+      }
+    }
+
+    // Voice recognition in Japanese
+    function startVoiceInput() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert('Voice input is not supported in this browser.');
+        return;
+      }
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'ja-JP';
+      const micBtn = document.getElementById('mic-btn');
+      micBtn.style.background = '#FF5252';
+      micBtn.style.color = '#FFFFFF';
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        document.getElementById('translate-input').value = transcript;
+        doTranslate();
+      };
+      recognition.onend = () => {
+        micBtn.style.background = '';
+        micBtn.style.color = '';
+      };
+      recognition.onerror = () => {
+        micBtn.style.background = '';
+        micBtn.style.color = '';
+      };
+      recognition.start();
+    }
+
+    // Translation Tab
+    async function doTranslate() {
+      const text = document.getElementById('translate-input').value.trim();
+      if (!text) return;
+      const trans = await fetchTranslation(text, appTargetLang);
+      document.getElementById('translate-result-card').style.display = 'block';
+      document.getElementById('translate-output-text').textContent = trans;
+
+      const tokens = extractJapaneseTokens(text);
+      const tokensArea = document.getElementById('translate-tokens-area');
+      const tokensChips = document.getElementById('translate-tokens-chips');
+      tokensChips.innerHTML = '';
+      if (tokens.length) {
+        tokensArea.style.display = 'block';
+        tokens.forEach(t => {
+          const chip = document.createElement('button');
+          chip.className = 'word-chip';
+          chip.innerHTML = `${t} <span class="badge">📖</span>`;
+          chip.onclick = () => openJishoSheet(t);
+          tokensChips.appendChild(chip);
+        });
+      } else {
+        tokensArea.style.display = 'none';
+      }
+
+      scanHistoryStore.unshift({
+        id: Date.now(),
+        original: text,
+        translated: trans,
+        lang: appTargetLang,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      });
+      localStorage.setItem('lens_jisho_scan_history', JSON.stringify(scanHistoryStore.slice(0, 50)));
+    }
+
+    async function fetchTranslation(text, targetLang) {
+      try {
+        const res = await fetch('/api/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, targetLang })
+        });
+        const data = await res.json();
+        return data.translated || '';
+      } catch (e) {
+        return 'Translation error';
+      }
+    }
+
+    function setTranslateSample(str) {
+      document.getElementById('translate-input').value = str;
+      doTranslate();
+    }
+
+    function copyTranslation() {
+      const text = document.getElementById('translate-output-text').textContent;
+      navigator.clipboard.writeText(text);
+      alert('Copied translation to clipboard!');
+    }
+
+    // Grammar Analysis Guide
+    async function openGrammarAnalysis(sentence) {
+      if (!sentence) return;
+      document.getElementById('grammar-scrim').classList.add('open');
+      document.getElementById('grammar-sheet').classList.add('open');
+      const content = document.getElementById('grammar-content');
+      content.innerHTML = '<p style="color:var(--outline); font-size:13px;">Analyzing Japanese grammar & particles…</p>';
+
+      try {
+        const res = await fetch('/api/grammar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sentence })
+        });
+        const data = await res.json();
+
+        let html = `
+          <div style="background:var(--primary-container); color:var(--on-primary-container); padding:16px; border-radius:16px;">
+            <p style="font-size:11px; font-weight:800; text-transform:uppercase;">Japanese Sentence</p>
+            <h3 style="font-size:22px; font-weight:800; margin:4px 0;">${data.sentence}</h3>
+            ${data.romaji ? `<p style="font-size:14px; opacity:0.85;">${data.romaji}</p>` : ''}
+            ${data.nuance ? `<p style="font-size:12px; margin-top:8px; font-weight:600;">💡 Politeness: ${data.nuance}</p>` : ''}
+          </div>
+        `;
+
+        if (data.grammarPoints && data.grammarPoints.length) {
+          html += '<h4 style="font-size:13px; font-weight:800; color:var(--outline); text-transform:uppercase; margin-top:10px;">Particles & Grammar Rules</h4>';
+          data.grammarPoints.forEach(g => {
+            html += `
+              <div style="background:var(--surface-variant); padding:14px; border-radius:14px;">
+                <strong style="color:var(--primary); font-size:16px;">${g.pattern}</strong>
+                <p style="font-size:13px; font-weight:700; margin-top:2px;">${g.meaning}</p>
+                <p style="font-size:12px; color:var(--on-surface-variant); margin-top:4px;">${g.explanation}</p>
+              </div>
+            `;
+          });
+        }
+
+        if (data.vocabulary && data.vocabulary.length) {
+          html += '<h4 style="font-size:13px; font-weight:800; color:var(--outline); text-transform:uppercase; margin-top:10px;">Word Breakdown</h4>';
+          data.vocabulary.forEach(v => {
+            html += `
+              <div style="display:flex; justify-content:space-between; align-items:center; background:var(--surface); padding:10px 14px; border-radius:10px; border:1px solid rgba(0,0,0,0.06);">
+                <div>
+                  <strong>${v.word}</strong> ${v.reading ? `<span style="color:var(--primary); font-size:12px;">【${v.reading}】</span>` : ''}
+                  <span style="font-size:11px; color:var(--outline); margin-left:6px;">${v.pos || ''}</span>
+                </div>
+                <span style="font-size:12px; font-weight:600;">${v.meaning || ''}</span>
+              </div>
+            `;
+          });
+        }
+
+        content.innerHTML = html;
+      } catch (err) {
+        content.innerHTML = '<p style="color:red; font-size:13px;">Failed to load grammar analysis.</p>';
+      }
+    }
+
+    function closeGrammarSheet() {
+      document.getElementById('grammar-scrim').classList.remove('open');
+      document.getElementById('grammar-sheet').classList.remove('open');
+    }
+
+    // Jisho Lookup & Modal Sheet
+    async function openJishoSheet(word) {
+      currentModalWord = word;
+      document.getElementById('sheet-word-title').textContent = word;
+      document.getElementById('sheet-reading').textContent = 'Searching readings…';
+      document.getElementById('sheet-burmese-text').textContent = 'Translating…';
+      document.getElementById('sheet-content-area').innerHTML = '<p style="color:var(--outline); font-size:13px;">Loading Jisho.org definitions…</p>';
+      document.getElementById('sheet-kanji-section').style.display = 'none';
+      
+      document.getElementById('sheet-scrim').classList.add('open');
+      document.getElementById('jisho-bottom-sheet').classList.add('open');
+
+      updateBookmarkIcon();
+
+      // Check for Kanji characters in the word and load Kanji breakdown
+      const kanjiChars = word.match(/[\u4E00-\u9FAF]/g);
+      if (kanjiChars && kanjiChars.length) {
+        loadKanjiBreakdown(kanjiChars);
+      }
+
+      try {
+        const res = await fetch(`/api/jisho?keyword=${encodeURIComponent(word)}`);
+        const json = await res.json();
+        const first = json.data && json.data[0];
+
+        if (first) {
+          currentModalData = first;
+          const reading = first.japanese?.[0]?.reading || '';
+          document.getElementById('sheet-reading').textContent = reading ? `【${reading}】` : '';
+          document.getElementById('sheet-burmese-text').textContent = json.burmeseMeaning || '—';
+
+          let html = '';
+          (first.senses || []).slice(0, 4).forEach((s, idx) => {
+            const defs = (s.english_definitions || []).join('; ');
+            const pos = (s.parts_of_speech || []).join(', ');
+            html += `
+              <div style="background:var(--surface-variant); padding:12px 14px; border-radius:12px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                  <strong style="font-size:14px; color:var(--primary);">${idx + 1}. ${defs}</strong>
+                  ${first.jlpt?.[0] ? `<span class="jlpt-badge jlpt-${first.jlpt[0].replace('jlpt-','').toUpperCase()}">${first.jlpt[0].replace('jlpt-','').toUpperCase()}</span>` : ''}
+                </div>
+                ${pos ? `<p style="font-size:11px; color:var(--outline);">${pos}</p>` : ''}
+              </div>
+            `;
+          });
+          document.getElementById('sheet-content-area').innerHTML = html;
+        } else {
+          document.getElementById('sheet-reading').textContent = '';
+          document.getElementById('sheet-burmese-text').textContent = json.burmeseMeaning || '—';
+          document.getElementById('sheet-content-area').innerHTML = '<p style="color:var(--outline); font-size:13px;">No direct definition found in Jisho. You can open Jisho.org web to view extended results.</p>';
+        }
+      } catch (err) {
+        document.getElementById('sheet-content-area').innerHTML = '<p style="color:red; font-size:13px;">Could not connect to Jisho.org</p>';
+      }
+    }
+
+    async function loadKanjiBreakdown(kanjiChars) {
+      const section = document.getElementById('sheet-kanji-section');
+      const list = document.getElementById('sheet-kanji-list');
+      list.innerHTML = '';
+      section.style.display = 'block';
+
+      for (const char of [...new Set(kanjiChars)].slice(0, 3)) {
+        try {
+          const res = await fetch(`/api/kanji?char=${encodeURIComponent(char)}`);
+          const k = await res.json();
+          if (k && !k.error) {
+            const card = document.createElement('div');
+            card.className = 'kanji-item-card';
+            card.innerHTML = `
+              <div class="kanji-char-box">${k.kanji}</div>
+              <div style="flex:1;">
+                <div style="display:flex; justify-content:space-between;">
+                  <strong style="font-size:14px;">${(k.meanings || []).slice(0, 2).join(', ')}</strong>
+                  ${k.jlpt ? `<span class="jlpt-badge jlpt-${k.jlpt}">${k.jlpt}</span>` : ''}
+                </div>
+                ${k.burmeseMeaning ? `<p style="font-size:12px; color:#00796B; font-weight:700;">🇲🇲 ${k.burmeseMeaning}</p>` : ''}
+                <p style="font-size:11px; color:var(--outline);">
+                  音: ${(k.onyomi || []).join('、')} | 訓: ${(k.kunyomi || []).join('、')}
+                  ${k.strokes ? ` | ${k.strokes} strokes` : ''}
+                </p>
+              </div>
+            `;
+            list.appendChild(card);
+          }
+        } catch (e) {}
+      }
+    }
+
+    function closeJishoSheet() {
+      document.getElementById('sheet-scrim').classList.remove('open');
+      document.getElementById('jisho-bottom-sheet').classList.remove('open');
+    }
+
+    function openJishoWeb(word) {
+      window.open(`https://jisho.org/search/${encodeURIComponent(word)}`, '_blank');
+    }
+
+    function openExternalGoogleTranslate(text) {
+      if (!text) return;
+      window.open(`https://translate.google.com/?sl=ja&tl=${appTargetLang}&text=${encodeURIComponent(text)}&op=translate`, '_blank');
+    }
+
+    // TTS Pronunciation with speed
+    function speakText(text) {
+      if (!text || !window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'ja-JP';
+      utterance.rate = ttsRate;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // Bookmarking / Saved Words
+    function isWordSaved(word) {
+      return savedWordsStore.some(item => item.word === word);
+    }
+
+    function updateBookmarkIcon() {
+      const icon = document.getElementById('bookmark-icon');
+      if (isWordSaved(currentModalWord)) {
+        icon.textContent = 'bookmark';
+        icon.style.color = 'var(--primary)';
+      } else {
+        icon.textContent = 'bookmark_border';
+        icon.style.color = '';
+      }
+    }
+
+    function toggleSaveCurrentWord() {
+      if (!currentModalWord) return;
+      const index = savedWordsStore.findIndex(item => item.word === currentModalWord);
+      if (index >= 0) {
+        savedWordsStore.splice(index, 1);
+      } else {
+        const reading = document.getElementById('sheet-reading').textContent.replace(/[【】]/g, '');
+        const burmese = document.getElementById('sheet-burmese-text').textContent;
+        const english = currentModalData?.senses?.[0]?.english_definitions?.join(', ') || '';
+        const jlpt = currentModalData?.jlpt?.[0]?.replace('jlpt-','').toUpperCase() || '';
+        savedWordsStore.unshift({
+          id: Date.now(),
+          word: currentModalWord,
+          reading,
+          burmese,
+          english,
+          jlpt
+        });
+      }
+      localStorage.setItem('lens_jisho_saved_words', JSON.stringify(savedWordsStore));
+      updateBookmarkIcon();
+    }
+
+    // Dictionary Tab Search
+    function handleDictSearchInput(e) {
+      clearTimeout(dictSearchTimer);
+      const query = e.target.value.trim();
+      if (!query) {
+        loadDictionarySuggestions();
+        return;
+      }
+      dictSearchTimer = setTimeout(() => {
+        performDictSearch(query);
+      }, 350);
+    }
+
+    async function performDictSearch(query) {
+      const container = document.getElementById('dict-results');
+      container.innerHTML = '<p style="color:var(--outline); font-size:13px;">Searching Jisho.org…</p>';
+      try {
+        const res = await fetch(`/api/jisho?keyword=${encodeURIComponent(query)}`);
+        const json = await res.json();
+        const items = json.data || [];
+        renderDictItems(items);
+      } catch (err) {
+        container.innerHTML = '<p style="color:red; font-size:13px;">Error loading dictionary</p>';
+      }
+    }
+
+    function setJlptFilter(filter, btn) {
+      activeJlptFilter = filter;
+      document.querySelectorAll('#screen-dictionary .word-chip').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const query = document.getElementById('dict-search').value.trim() || '日本語';
+      performDictSearch(query);
+    }
+
+    function renderDictItems(items) {
+      const container = document.getElementById('dict-results');
+      container.innerHTML = '';
+      if (!items.length) {
+        container.innerHTML = '<p style="color:var(--outline); font-size:13px;">No results found.</p>';
+        return;
+      }
+
+      items.forEach(item => {
+        const word = item.japanese?.[0]?.word || item.slug || '';
+        const reading = item.japanese?.[0]?.reading || '';
+        const jlpt = item.jlpt?.[0]?.replace('jlpt-','').toUpperCase() || '';
+        const meaning = (item.senses?.[0]?.english_definitions || []).slice(0, 2).join('; ');
+
+        if (activeJlptFilter !== 'All' && activeJlptFilter !== 'Common' && jlpt !== activeJlptFilter) return;
+        if (activeJlptFilter === 'Common' && !item.is_common) return;
+
+        const card = document.createElement('div');
+        card.className = 'section-card';
+        card.style.margin = '0';
+        card.style.cursor = 'pointer';
+        card.onclick = () => openJishoSheet(word);
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <strong style="font-size:18px;">${word}</strong>
+                ${reading && reading !== word ? `<span style="font-size:13px; color:var(--primary);">【${reading}】</span>` : ''}
+              </div>
+              <p style="font-size:13px; color:var(--on-surface-variant); margin-top:4px;">${meaning}</p>
+            </div>
+            ${jlpt ? `<span class="jlpt-badge jlpt-${jlpt}">${jlpt}</span>` : ''}
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function loadDictionarySuggestions() {
+      const suggestions = ['日本語', '桜', '勉強', '食べる', '友達', '猫', '東京', '先生'];
+      const container = document.getElementById('dict-results');
+      container.innerHTML = '<p style="font-size:11px; font-weight:700; color:var(--outline); text-transform:uppercase;">Quick Suggestions:</p>';
+      const chips = document.createElement('div');
+      chips.className = 'chip-container';
+      suggestions.forEach(w => {
+        const btn = document.createElement('button');
+        btn.className = 'word-chip';
+        btn.textContent = w;
+        btn.onclick = () => {
+          document.getElementById('dict-search').value = w;
+          performDictSearch(w);
+        };
+        chips.appendChild(btn);
+      });
+      container.appendChild(chips);
+    }
+
+    // Saved Screen & Quiz Practice
+    function switchSavedTab(tab) {
+      document.getElementById('tab-btn-saved').className = tab === 'saved' ? 'btn btn-primary' : 'btn btn-outlined';
+      document.getElementById('tab-btn-quiz').className = tab === 'quiz' ? 'btn btn-primary' : 'btn btn-outlined';
+      document.getElementById('tab-btn-history').className = tab === 'history' ? 'btn btn-primary' : 'btn btn-outlined';
+
+      document.getElementById('saved-list-container').style.display = tab === 'saved' ? 'flex' : 'none';
+      document.getElementById('quiz-container').style.display = tab === 'quiz' ? 'flex' : 'none';
+      document.getElementById('history-list-container').style.display = tab === 'history' ? 'flex' : 'none';
+
+      if (tab === 'quiz') startQuiz();
+      else renderSavedScreen();
+    }
+
+    function renderSavedScreen() {
+      const savedContainer = document.getElementById('saved-list-container');
+      savedContainer.innerHTML = '';
+      if (!savedWordsStore.length) {
+        savedContainer.innerHTML = '<p style="color:var(--outline); font-size:13px; text-align:center; padding:20px;">No saved words yet. Bookmark words from Lens or Dictionary!</p>';
+      } else {
+        // Export to CSV Header Card
+        const exportHeader = document.createElement('div');
+        exportHeader.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:var(--surface-variant); padding:12px 14px; border-radius:14px; margin-bottom:4px; border:1px solid rgba(0,0,0,0.06);';
+        exportHeader.innerHTML = `
+          <div>
+            <strong style="font-size:14px;">Saved Words (${savedWordsStore.length})</strong>
+            <p style="font-size:11px; color:var(--primary); font-weight:600;">Ready for Anki study</p>
+          </div>
+          <button class="btn btn-primary" onclick="exportSavedWordsToCsv()" style="padding:8px 14px; font-size:12px; flex:0 0 auto;">
+            <span class="material-symbols-rounded" style="font-size:16px;">download</span> Export to CSV
+          </button>
+        `;
+        savedContainer.appendChild(exportHeader);
+
+        savedWordsStore.forEach((item, index) => {
+          const div = document.createElement('div');
+          div.className = 'section-card';
+          div.style.margin = '0';
+          div.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+              <div onclick="openJishoSheet('${item.word}')" style="cursor:pointer; flex:1;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <strong style="font-size:18px;">${item.word}</strong>
+                  ${item.reading ? `<span style="font-size:13px; color:var(--primary);">【${item.reading}】</span>` : ''}
+                  ${item.jlpt ? `<span class="jlpt-badge jlpt-${item.jlpt}">${item.jlpt}</span>` : ''}
+                </div>
+                ${item.burmese ? `<p style="font-size:13px; color:#00796B; font-weight:700; margin-top:4px;">🇲🇲 ${item.burmese}</p>` : ''}
+                <p style="font-size:12px; color:var(--outline);">${item.english}</p>
+              </div>
+              <div style="display:flex; gap:4px;">
+                <button onclick="speakText('${item.word}')" class="icon-btn" style="width:30px; height:30px;"><span class="material-symbols-rounded" style="font-size:18px;">volume_up</span></button>
+                <button onclick="deleteSavedWord(${index})" class="icon-btn" style="width:30px; height:30px;"><span class="material-symbols-rounded" style="font-size:18px;">delete</span></button>
+              </div>
+            </div>
+          `;
+          savedContainer.appendChild(div);
+        });
+      }
+
+      // History list
+      const histContainer = document.getElementById('history-list-container');
+      histContainer.innerHTML = '';
+      if (!scanHistoryStore.length) {
+        histContainer.innerHTML = '<p style="color:var(--outline); font-size:13px; text-align:center; padding:20px;">No translation history yet.</p>';
+      } else {
+        scanHistoryStore.forEach((h, idx) => {
+          const div = document.createElement('div');
+          div.className = 'section-card';
+          div.style.margin = '0';
+          div.innerHTML = `
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+              <span style="font-size:11px; font-weight:700; color:var(--primary);">${h.lang === 'my' ? '🇲🇲 Myanmar' : '🇬🇧 English'}</span>
+              <span style="font-size:11px; color:var(--outline);">${h.timestamp || ''}</span>
+            </div>
+            <strong style="font-size:15px;">${h.original}</strong>
+            <p style="font-size:14px; color:var(--on-surface-variant); margin-top:2px;">→ ${h.translated}</p>
+          `;
+          histContainer.appendChild(div);
+        });
+      }
+    }
+
+    function deleteSavedWord(idx) {
+      savedWordsStore.splice(idx, 1);
+      localStorage.setItem('lens_jisho_saved_words', JSON.stringify(savedWordsStore));
+      renderSavedScreen();
+    }
+
+    // Quiz Mode
+    function startQuiz() {
+      if (!savedWordsStore.length) {
+        document.getElementById('quiz-card').innerHTML = '<p style="padding:20px; color:var(--outline);">Please save some words first to practice flashcards!</p>';
+        return;
+      }
+      currentQuizIndex = 0;
+      showQuizCard();
+    }
+
+    function showQuizCard() {
+      const item = savedWordsStore[currentQuizIndex % savedWordsStore.length];
+      document.getElementById('quiz-word').textContent = item.word;
+      document.getElementById('quiz-reading').textContent = item.reading ? `【${item.reading}】` : '';
+      document.getElementById('quiz-meaning').textContent = `${item.english} ${item.burmese ? `(${item.burmese})` : ''}`;
+      document.getElementById('quiz-answer').style.display = 'none';
+    }
+
+    function revealQuizAnswer() {
+      document.getElementById('quiz-answer').style.display = 'block';
+      const item = savedWordsStore[currentQuizIndex % savedWordsStore.length];
+      speakText(item.word);
+    }
+
+    function nextQuizCard() {
+      currentQuizIndex++;
+      showQuizCard();
+    }
+
+    // Export saved vocabulary to CSV for Anki & external study tools
+    function exportSavedWordsToCsv() {
+      if (!savedWordsStore.length) {
+        alert('No saved vocabulary to export.');
+        return;
+      }
+      
+      // UTF-8 BOM (\uFEFF) to ensure Excel and Anki correctly render Kanji, Katakana, Hiragana, and Burmese
+      let csvContent = '\uFEFFWord,Reading,English Definition,Burmese Meaning,JLPT Level\n';
+      
+      savedWordsStore.forEach(item => {
+        function escapeCsv(val) {
+          if (!val) return '""';
+          return '"' + String(val).replace(/"/g, '""').replace(/\n/g, ' ').trim() + '"';
+        }
+        const row = [
+          escapeCsv(item.word),
+          escapeCsv(item.reading || ''),
+          escapeCsv(item.english || ''),
+          escapeCsv(item.burmese || ''),
+          escapeCsv(item.jlpt || '')
+        ].join(',');
+        csvContent += row + '\n';
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `lens_jisho_anki_vocab_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>

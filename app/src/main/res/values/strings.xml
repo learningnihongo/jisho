@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">LensJisho</string>
+    <string name="nav_lens">Lens</string>
+    <string name="nav_translate">Translate</string>
+    <string name="nav_dictionary">Dictionary</string>
+    <string name="nav_saved">Saved</string>
+    <string name="camera_permission_required">Camera permission is needed to scan Japanese text</string>
+    <string name="grant_permission">Grant Permission</string>
+    <string name="search_hint">Search Kanji, Kana, Romaji or English…</string>
+    <string name="translate_hint">Enter or paste Japanese text…</string>
+    <string name="target_burmese">Myanmar (Burmese)</string>
+    <string name="target_english">English</string>
+</resources>
