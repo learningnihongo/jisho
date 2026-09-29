@@ -211,8 +211,10 @@ fun MainApp(viewModel: MainViewModel = viewModel()) {
                     searchQuery = dictQuery,
                     results = dictResults,
                     isSearching = isDictSearching,
+                    savedWords = savedWords,
                     onQueryChanged = { viewModel.onDictionaryQueryChanged(it) },
                     onWordSelected = { word -> viewModel.lookupWordInJisho(word) },
+                    onToggleSave = { wordItem -> viewModel.toggleSaveWord(wordItem) },
                     onSpeak = { text -> viewModel.speak(text) },
                     modifier = Modifier.padding(innerPadding)
                 )
@@ -226,6 +228,7 @@ fun MainApp(viewModel: MainViewModel = viewModel()) {
                     onDeleteHistory = { id -> viewModel.deleteScanHistory(id) },
                     onClearAllHistory = { viewModel.clearAllHistory() },
                     onSpeak = { text -> viewModel.speak(text) },
+                    onQuizReview = { word, rating -> viewModel.recordQuizReview(word, rating) },
                     modifier = Modifier.padding(innerPadding)
                 )
             }

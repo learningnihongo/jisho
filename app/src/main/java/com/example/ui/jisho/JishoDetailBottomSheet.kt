@@ -17,13 +17,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.widget.Toast
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.Button
@@ -108,6 +113,7 @@ fun JishoDetailBottomSheet(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Pronounce
                     IconButton(
                         onClick = { onSpeak(selectedWord) },
                         modifier = Modifier
@@ -119,6 +125,31 @@ fun JishoDetailBottomSheet(
                             imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                             contentDescription = "Pronounce Japanese",
                             tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+
+                    // Copy Word
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(
+                        onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val copyText = if (!burmeseMeaning.isNullOrBlank()) {
+                                "$selectedWord — $burmeseMeaning"
+                            } else {
+                                selectedWord
+                            }
+                            clipboard.setPrimaryClip(ClipData.newPlainText("Jisho Word", copyText))
+                            Toast.makeText(context, "ကူးယူပြီးပါပြီ (Copied: $selectedWord)", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                            .size(44.dp)
+                            .testTag("jisho_copy_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = "Copy Word",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -298,14 +329,18 @@ fun JishoDetailBottomSheet(
                 }
             } else {
                 // List of Jisho Entries
-                results.forEachIndexed { index, wordItem ->
-                    JishoWordCard(
-                        wordItem = wordItem,
-                        index = index + 1,
-                        onSpeak = onSpeak
-                    )
-                    if (index < results.lastIndex) {
-                        Spacer(modifier = Modifier.height(14.dp))
+                SelectionContainer {
+                    Column {
+                        results.forEachIndexed { index, wordItem ->
+                            JishoWordCard(
+                                wordItem = wordItem,
+                                index = index + 1,
+                                onSpeak = onSpeak
+                            )
+                            if (index < results.lastIndex) {
+                                Spacer(modifier = Modifier.height(14.dp))
+                            }
+                        }
                     }
                 }
             }

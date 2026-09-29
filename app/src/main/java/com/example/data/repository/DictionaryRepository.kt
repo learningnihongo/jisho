@@ -57,6 +57,10 @@ class DictionaryRepository(
         wordDao.deleteWord(savedWord)
     }
 
+    suspend fun updateWord(savedWord: SavedWord) = withContext(Dispatchers.IO) {
+        wordDao.updateWord(savedWord)
+    }
+
     fun getScanHistory(): Flow<List<ScanHistory>> = wordDao.getRecentScanHistory()
 
     suspend fun recordScan(originalText: String, translatedText: String, targetLang: String) =

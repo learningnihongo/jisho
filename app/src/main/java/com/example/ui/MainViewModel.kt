@@ -8,6 +8,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.local.AppDatabase
 import com.example.data.local.SavedWord
 import com.example.data.local.ScanHistory
+import com.example.data.local.SrsAlgorithm
+import com.example.data.local.SrsRating
 import com.example.data.remote.JishoWordItem
 import com.example.data.remote.NetworkClient
 import com.example.data.repository.DictionaryRepository
@@ -287,6 +289,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun clearAllHistory() {
         viewModelScope.launch {
             repository.clearAllScanHistory()
+        }
+    }
+
+    fun recordQuizReview(word: SavedWord, rating: SrsRating) {
+        viewModelScope.launch {
+            val updatedWord = SrsAlgorithm.calculateNextReview(word, rating)
+            repository.updateWord(updatedWord)
         }
     }
 

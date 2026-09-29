@@ -24,12 +24,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Translate
@@ -151,11 +154,21 @@ fun TranslateScreen(
                     )
                 }
 
-                Icon(
-                    imageVector = Icons.Default.SwapHoriz,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
+                IconButton(
+                    onClick = {
+                        val nextLang = if (targetLanguage == "my") "en" else "my"
+                        onTargetLanguageChanged(nextLang)
+                        val name = if (nextLang == "my") "ဗမာ (Myanmar)" else "English"
+                        Toast.makeText(context, "Switched target to $name", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.size(44.dp).testTag("swap_target_lang_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.SwapHoriz,
+                        contentDescription = "Swap Target Language",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
 
                 // Target Language Switcher
                 Row(
@@ -200,7 +213,7 @@ fun TranslateScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Input Field
+        // Input Field with working Clear, Paste, and Speak Icon buttons
         OutlinedTextField(
             value = inputText,
             onValueChange = onInputChanged,
@@ -216,12 +229,80 @@ fun TranslateScreen(
                 unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
             ),
             trailingIcon = {
-                if (inputText.isNotEmpty()) {
-                    IconButton(
-                        onClick = { onInputChanged("") },
-                        modifier = Modifier.testTag("clear_translate_input")
-                    ) {
-                        Icon(Icons.Default.Clear, contentDescription = "Clear input")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (inputText.isNotEmpty()) {
+                        // 1. Speak original Japanese input
+                        IconButton(
+                            onClick = {
+                                onSpeak(inputText)
+                                Toast.makeText(context, "Speaking: $inputText", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.size(40.dp).testTag("speak_translate_input")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                                contentDescription = "Listen to Input",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        // 2. Copy original Japanese input
+                        IconButton(
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                clipboard.setPrimaryClip(ClipData.newPlainText("Japanese Input", inputText))
+                                Toast.makeText(context, "ဂျပန်စာသား ကူးယူပြီးပါပြီ (Copied)", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.size(40.dp).testTag("copy_translate_input")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = "Copy Input",
+                                tint = MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        }
+
+                        // 3. Clear text
+                        IconButton(
+                            onClick = { onInputChanged("") },
+                            modifier = Modifier.size(40.dp).testTag("clear_translate_input")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Clear,
+                                contentDescription = "Clear input",
+                                tint = MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    } else {
+                        // Paste from clipboard button
+                        IconButton(
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val clip = clipboard.primaryClip
+                                if (clip != null && clip.itemCount > 0) {
+                                    val text = clip.getItemAt(0).text?.toString()?.trim() ?: ""
+                                    if (text.isNotEmpty()) {
+                                        onInputChanged(text)
+                                        Toast.makeText(context, "ကူးထည့်ပြီးပါပြီ (Pasted)", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, "Clipboard is empty", Toast.LENGTH_SHORT).show()
+                                    }
+                                } else {
+                                    Toast.makeText(context, "Clipboard is empty", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.size(44.dp).testTag("paste_translate_input")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ContentPaste,
+                                contentDescription = "Paste Japanese text",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -354,37 +435,51 @@ fun TranslateScreen(
                             color = MaterialTheme.colorScheme.primary
                         )
 
-                        Row {
-                            // Audio speak
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            // 1. Audio speak
                             IconButton(
-                                onClick = { onSpeak(inputText) },
-                                modifier = Modifier.size(36.dp)
+                                onClick = {
+                                    onSpeak(inputText)
+                                    Toast.makeText(context, "Speaking Japanese text...", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier
+                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f), CircleShape)
+                                    .size(40.dp)
+                                    .testTag("translate_speak_btn")
                             ) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                                     contentDescription = "Speak original Japanese",
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
 
-                            // Copy
+                            // 2. Copy Translation
                             IconButton(
                                 onClick = {
                                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                     val clip = ClipData.newPlainText("Translated Text", translatedResult)
                                     clipboard.setPrimaryClip(clip)
-                                    Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "ဘာသာပြန်ချက် ကူးယူပြီးပါပြီ (Copied)", Toast.LENGTH_SHORT).show()
                                 },
-                                modifier = Modifier.size(36.dp)
+                                modifier = Modifier
+                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f), CircleShape)
+                                    .size(40.dp)
+                                    .testTag("translate_copy_btn")
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.ContentCopy,
                                     contentDescription = "Copy Translation",
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(19.dp)
                                 )
                             }
 
-                            // Share
+                            // 3. Share
                             IconButton(
                                 onClick = {
                                     val shareIntent = Intent(Intent.ACTION_SEND).apply {
@@ -393,12 +488,16 @@ fun TranslateScreen(
                                     }
                                     context.startActivity(Intent.createChooser(shareIntent, "Share Translation"))
                                 },
-                                modifier = Modifier.size(36.dp)
+                                modifier = Modifier
+                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f), CircleShape)
+                                    .size(40.dp)
+                                    .testTag("translate_share_btn")
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Share,
                                     contentDescription = "Share",
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(19.dp)
                                 )
                             }
                         }
@@ -406,17 +505,52 @@ fun TranslateScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    Text(
-                        text = translatedResult,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        fontSize = 20.sp
-                    )
+                    SelectionContainer {
+                        Text(
+                            text = translatedResult,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontSize = 20.sp
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(14.dp))
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                     Spacer(modifier = Modifier.height(10.dp))
+
+                    // Jisho Search & External Browser Buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { onWordSelected(inputText.trim()) },
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f).testTag("translate_search_jisho_btn"),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Jisho တွင် ရှာဖွေမည်", fontSize = 12.sp, maxLines = 1)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                TranslationService.openJishoWeb(context, inputText.trim())
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.testTag("translate_open_jisho_web_btn")
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Jisho Web", fontSize = 12.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // Open in Google Translate button
                     OutlinedButton(

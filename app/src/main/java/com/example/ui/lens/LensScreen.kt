@@ -50,7 +50,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.material.icons.Icons
@@ -671,15 +674,25 @@ fun CapturedResultView(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     if (hasRecognizedText) {
+                        SelectionContainer {
+                            Text(
+                                text = ocrResult!!.fullText,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                lineHeight = 26.sp
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = ocrResult!!.fullText,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            lineHeight = 26.sp
+                            text = "💡 စာသားပေါ်တွင် ဖိ၍ Select မှတ်ပြီး Copy ကူးယူနိုင်ပါသည် (Long-press to select & copy)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline,
+                            fontSize = 11.sp
                         )
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
                         // Actions for Scanned Text: Search in Jisho.org & Open Web
                         Row(
@@ -786,13 +799,15 @@ fun CapturedResultView(
                             Text("Translating Japanese to Myanmar…", style = MaterialTheme.typography.bodyMedium)
                         }
                     } else if (!lensTranslation.isNullOrBlank()) {
-                        Text(
-                            text = lensTranslation,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            lineHeight = 24.sp
-                        )
+                        SelectionContainer {
+                            Text(
+                                text = lensTranslation,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                lineHeight = 24.sp
+                            )
+                        }
 
                         Spacer(modifier = Modifier.height(12.dp))
 
