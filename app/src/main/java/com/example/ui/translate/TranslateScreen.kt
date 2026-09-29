@@ -213,14 +213,14 @@ fun TranslateScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Input Field with working Clear, Paste, and Speak Icon buttons
+        // Input Field
         OutlinedTextField(
             value = inputText,
             onValueChange = onInputChanged,
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("translate_input_field"),
-            placeholder = { Text("Enter Japanese text or sentence…") },
+            placeholder = { Text("Enter Japanese text or sentence (e.g. 日本語の勉強はとても面白いです)…") },
             minLines = 3,
             maxLines = 6,
             shape = RoundedCornerShape(16.dp),
@@ -229,84 +229,183 @@ fun TranslateScreen(
                 unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
             ),
             trailingIcon = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (inputText.isNotEmpty()) {
-                        // 1. Speak original Japanese input
-                        IconButton(
-                            onClick = {
-                                onSpeak(inputText)
-                                Toast.makeText(context, "Speaking: $inputText", Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier.size(40.dp).testTag("speak_translate_input")
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                                contentDescription = "Listen to Input",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        // 2. Copy original Japanese input
-                        IconButton(
-                            onClick = {
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                clipboard.setPrimaryClip(ClipData.newPlainText("Japanese Input", inputText))
-                                Toast.makeText(context, "ဂျပန်စာသား ကူးယူပြီးပါပြီ (Copied)", Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier.size(40.dp).testTag("copy_translate_input")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ContentCopy,
-                                contentDescription = "Copy Input",
-                                tint = MaterialTheme.colorScheme.outline,
-                                modifier = Modifier.size(19.dp)
-                            )
-                        }
-
-                        // 3. Clear text
-                        IconButton(
-                            onClick = { onInputChanged("") },
-                            modifier = Modifier.size(40.dp).testTag("clear_translate_input")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Clear,
-                                contentDescription = "Clear input",
-                                tint = MaterialTheme.colorScheme.outline,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    } else {
-                        // Paste from clipboard button
-                        IconButton(
-                            onClick = {
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                val clip = clipboard.primaryClip
-                                if (clip != null && clip.itemCount > 0) {
-                                    val text = clip.getItemAt(0).text?.toString()?.trim() ?: ""
-                                    if (text.isNotEmpty()) {
-                                        onInputChanged(text)
-                                        Toast.makeText(context, "ကူးထည့်ပြီးပါပြီ (Pasted)", Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        Toast.makeText(context, "Clipboard is empty", Toast.LENGTH_SHORT).show()
-                                    }
+                if (inputText.isNotEmpty()) {
+                    IconButton(
+                        onClick = { onInputChanged("") },
+                        modifier = Modifier.testTag("clear_translate_input")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Clear,
+                            contentDescription = "Clear input",
+                            tint = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                } else {
+                    IconButton(
+                        onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val clip = clipboard.primaryClip
+                            if (clip != null && clip.itemCount > 0) {
+                                val text = clip.getItemAt(0).text?.toString()?.trim() ?: ""
+                                if (text.isNotEmpty()) {
+                                    onInputChanged(text)
+                                    Toast.makeText(context, "ကူးထည့်ပြီးပါပြီ (Pasted)", Toast.LENGTH_SHORT).show()
                                 } else {
                                     Toast.makeText(context, "Clipboard is empty", Toast.LENGTH_SHORT).show()
                                 }
-                            },
-                            modifier = Modifier.size(44.dp).testTag("paste_translate_input")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ContentPaste,
-                                contentDescription = "Paste Japanese text",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
+                            } else {
+                                Toast.makeText(context, "Clipboard is empty", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.testTag("paste_translate_input")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ContentPaste,
+                            contentDescription = "Paste from clipboard",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
             }
         )
+
+        // Dedicated Input Actions Toolbar (Listen, Copy, Paste, Clear)
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                // Listen to Japanese Input
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier
+                        .clickable(enabled = inputText.isNotEmpty()) {
+                            onSpeak(inputText)
+                            Toast.makeText(context, "Speaking: $inputText", Toast.LENGTH_SHORT).show()
+                        }
+                        .testTag("speak_translate_input")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                            contentDescription = "Listen",
+                            tint = if (inputText.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "အသံထွက်",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (inputText.isNotEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+
+                // Copy Input
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier
+                        .clickable(enabled = inputText.isNotEmpty()) {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            clipboard.setPrimaryClip(ClipData.newPlainText("Japanese Input", inputText))
+                            Toast.makeText(context, "ဂျပန်စာသား ကူးယူပြီးပါပြီ (Copied)", Toast.LENGTH_SHORT).show()
+                        }
+                        .testTag("copy_translate_input")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = "Copy",
+                            tint = if (inputText.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "ကူးမည်",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (inputText.isNotEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+
+                // Paste from clipboard
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier
+                        .clickable {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val clip = clipboard.primaryClip
+                            if (clip != null && clip.itemCount > 0) {
+                                val text = clip.getItemAt(0).text?.toString()?.trim() ?: ""
+                                if (text.isNotEmpty()) {
+                                    onInputChanged(text)
+                                    Toast.makeText(context, "ကူးထည့်ပြီးပါပြီ (Pasted)", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Clipboard is empty", Toast.LENGTH_SHORT).show()
+                                }
+                            } else {
+                                Toast.makeText(context, "Clipboard is empty", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        .testTag("toolbar_paste_input")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ContentPaste,
+                            contentDescription = "Paste",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "ကူးထည့်",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            if (inputText.isNotEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                    modifier = Modifier.clickable { onInputChanged("") }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Clear,
+                            contentDescription = "Clear",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = "ရှင်းထုတ်မည်",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+        }
 
         // Quick Input Samples
         if (inputText.isEmpty()) {

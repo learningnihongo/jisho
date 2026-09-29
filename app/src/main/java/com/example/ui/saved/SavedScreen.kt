@@ -24,11 +24,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -37,6 +40,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
@@ -46,10 +50,13 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -77,8 +84,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.local.QuizSortMode
 import com.example.data.local.SavedWord
 import com.example.data.local.ScanHistory
 import com.example.data.local.SrsAlgorithm
@@ -416,6 +425,12 @@ fun SavedScreen(
  * Spaced Repetition (SRS) Quiz Practice Section
  * Actively prioritizes words the user is struggling to recall.
  */
+data class SessionReviewedWord(
+    val word: SavedWord,
+    val rating: SrsRating,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SrsQuizPracticeSection(
@@ -423,33 +438,26 @@ fun SrsQuizPracticeSection(
     onQuizReview: (SavedWord, SrsRating) -> Unit,
     onSpeak: (String) -> Unit
 ) {
-    var quizFilter by remember { mutableStateOf("struggling") } // "struggling", "due", "all"
+    var sortMode by remember { mutableStateOf(QuizSortMode.STRUGGLING) }
+    var jlptFilter by remember { mutableStateOf("ALL") }
+    var isSortDropdownOpen by remember { mutableStateOf(false) }
     var isFlipped by remember { mutableStateOf(false) }
 
     // Dynamic session queue: re-queues struggling cards when "Again" is clicked
     val sessionQueue = remember { mutableStateListOf<SavedWord>() }
 
-    // Rebuild queue when savedWords or filter changes
+    // Stores reviews in current session for the Last 5 Words section
+    val sessionReviews = remember { mutableStateListOf<SessionReviewedWord>() }
+
+    // Rebuild queue when savedWords, sortMode, or jlptFilter changes
     fun rebuildQueue() {
-        val prioritized = SrsAlgorithm.prioritizeForQuiz(savedWords)
-        val filtered = when (quizFilter) {
-            "struggling" -> {
-                val struggling = prioritized.filter { SrsAlgorithm.getSrsStage(it) == SrsStage.STRUGGLING }
-                if (struggling.isNotEmpty()) struggling else prioritized
-            }
-            "due" -> {
-                val now = System.currentTimeMillis()
-                val due = prioritized.filter { it.nextReviewTimestamp <= now }
-                if (due.isNotEmpty()) due else prioritized
-            }
-            else -> prioritized
-        }
+        val sorted = SrsAlgorithm.filterAndSortQuizQueue(savedWords, sortMode, jlptFilter)
         sessionQueue.clear()
-        sessionQueue.addAll(filtered)
+        sessionQueue.addAll(sorted)
         isFlipped = false
     }
 
-    LaunchedEffect(savedWords.size, quizFilter) {
+    LaunchedEffect(savedWords.size, sortMode, jlptFilter) {
         if (sessionQueue.isEmpty()) {
             rebuildQueue()
         }
@@ -458,7 +466,9 @@ fun SrsQuizPracticeSection(
     val currentWord = sessionQueue.firstOrNull()
 
     Column(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
     ) {
         // SRS Stats overview
         val strugglingWords = savedWords.filter { SrsAlgorithm.getSrsStage(it) == SrsStage.STRUGGLING }
@@ -497,32 +507,134 @@ fun SrsQuizPracticeSection(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Filter chips
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth()
+        // 'Quiz Sorting' Dropdown Menu Bar
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { isSortDropdownOpen = true }
+                .testTag("quiz_sorting_dropdown_trigger")
         ) {
-            FilterChip(
-                selected = quizFilter == "struggling",
-                onClick = {
-                    quizFilter = "struggling"
-                    rebuildQueue()
-                },
-                label = { Text("⚠️ ခက်သောစကားလုံး ဦးစားပေး (${strugglingWords.size})", fontSize = 11.sp) },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.errorContainer,
-                    selectedLabelColor = MaterialTheme.colorScheme.onErrorContainer
-                )
-            )
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Icon(
+                        imageVector = Icons.Default.Sort,
+                        contentDescription = "Quiz Sorting",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = "Quiz Sorting (ဦးစားပေး စီစဉ်မှု):",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline,
+                            fontSize = 11.sp
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "${sortMode.iconEmoji} ${sortMode.title}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "(${sortMode.myanmarTitle})",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
 
-            FilterChip(
-                selected = quizFilter == "all",
-                onClick = {
-                    quizFilter = "all"
-                    rebuildQueue()
-                },
-                label = { Text("အားလုံး (${savedWords.size})", fontSize = 11.sp) }
-            )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                    ) {
+                        Text(
+                            text = "${sessionQueue.size} words",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.Default.ArrowDropDown,
+                        contentDescription = "Open Sorting Dropdown",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            DropdownMenu(
+                expanded = isSortDropdownOpen,
+                onDismissRequest = { isSortDropdownOpen = false },
+                modifier = Modifier.widthIn(min = 280.dp)
+            ) {
+                QuizSortMode.entries.forEach { mode ->
+                    DropdownMenuItem(
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(mode.iconEmoji, fontSize = 16.sp)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = mode.title,
+                                        fontWeight = if (sortMode == mode) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (sortMode == mode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = mode.myanmarTitle,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.outline
+                                    )
+                                }
+                            }
+                        },
+                        onClick = {
+                            sortMode = mode
+                            isSortDropdownOpen = false
+                            rebuildQueue()
+                        }
+                    )
+                }
+            }
+        }
+
+        // JLPT Level Sub-filters when JLPT Sorting is selected
+        if (sortMode == QuizSortMode.JLPT_LEVEL) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                listOf("ALL", "N5", "N4", "N3", "N2", "N1").forEach { level ->
+                    FilterChip(
+                        selected = jlptFilter == level,
+                        onClick = {
+                            jlptFilter = level
+                            rebuildQueue()
+                        },
+                        label = {
+                            Text(
+                                text = if (level == "ALL") "All Levels" else level,
+                                fontSize = 11.sp,
+                                fontWeight = if (jlptFilter == level) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    )
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -732,6 +844,7 @@ fun SrsQuizPracticeSection(
                     // 1. AGAIN (မမှတ်မိ / ခက်သည်) -> Prioritizes and stays in active queue!
                     Button(
                         onClick = {
+                            sessionReviews.add(0, SessionReviewedWord(currentWord, SrsRating.AGAIN))
                             onQuizReview(currentWord, SrsRating.AGAIN)
                             // Remove current and re-insert into queue (at position 2 or end) so user gets quizzed again!
                             sessionQueue.removeAt(0)
@@ -755,6 +868,7 @@ fun SrsQuizPracticeSection(
                     // 2. HARD (အတော်ခက်)
                     Button(
                         onClick = {
+                            sessionReviews.add(0, SessionReviewedWord(currentWord, SrsRating.HARD))
                             onQuizReview(currentWord, SrsRating.HARD)
                             sessionQueue.removeAt(0)
                             isFlipped = false
@@ -772,6 +886,7 @@ fun SrsQuizPracticeSection(
                     // 3. GOOD (မှတ်မိသည်)
                     Button(
                         onClick = {
+                            sessionReviews.add(0, SessionReviewedWord(currentWord, SrsRating.GOOD))
                             onQuizReview(currentWord, SrsRating.GOOD)
                             sessionQueue.removeAt(0)
                             isFlipped = false
@@ -789,6 +904,7 @@ fun SrsQuizPracticeSection(
                     // 4. EASY (လွယ်ကူ)
                     Button(
                         onClick = {
+                            sessionReviews.add(0, SessionReviewedWord(currentWord, SrsRating.EASY))
                             onQuizReview(currentWord, SrsRating.EASY)
                             sessionQueue.removeAt(0)
                             isFlipped = false
@@ -810,6 +926,194 @@ fun SrsQuizPracticeSection(
                     modifier = Modifier.fillMaxWidth().height(48.dp)
                 ) {
                     Text("အဖြေစစ်ဆေးမည် (Show Answer)", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        // SECTION: Last 5 Words Reviewed in the Current Session
+        if (sessionReviews.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(24.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.History,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Last 5 Reviewed in Session:",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                ) {
+                    Text(
+                        text = "${sessionReviews.size.coerceAtMost(5)}/5 words",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("srs_recent_reviews_list")
+            ) {
+                sessionReviews.take(5).forEach { reviewItem ->
+                    SessionReviewItemCard(
+                        review = reviewItem,
+                        onSpeak = onSpeak
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
+
+/**
+ * Card showing an individual word reviewed in the current quiz session,
+ * highlighting whether it was marked 'Again', 'Hard', 'Good', or 'Easy'.
+ */
+@Composable
+fun SessionReviewItemCard(
+    review: SessionReviewedWord,
+    onSpeak: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val ratingColor = when (review.rating) {
+        SrsRating.AGAIN -> MaterialTheme.colorScheme.error
+        SrsRating.HARD -> Color(0xFFF57C00)
+        SrsRating.GOOD -> Color(0xFF2E7D32)
+        SrsRating.EASY -> MaterialTheme.colorScheme.primary
+    }
+
+    val ratingBg = ratingColor.copy(alpha = 0.12f)
+
+    val ratingLabel = when (review.rating) {
+        SrsRating.AGAIN -> "Again (ခက်သည်)"
+        SrsRating.HARD -> "Hard (အတော်ခက်)"
+        SrsRating.GOOD -> "Good (မှတ်မိ)"
+        SrsRating.EASY -> "Easy (လွယ်ကူ)"
+    }
+
+    val ratingIcon = when (review.rating) {
+        SrsRating.AGAIN -> "⚠️"
+        SrsRating.HARD -> "⏳"
+        SrsRating.GOOD -> "✅"
+        SrsRating.EASY -> "⭐"
+    }
+
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.2.dp, ratingColor.copy(alpha = 0.45f)),
+        shadowElevation = 1.dp,
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("session_review_${review.word.word}")
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Left: Audio button + Word + Reading + Meaning
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                IconButton(
+                    onClick = { onSpeak(review.word.word) },
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f), CircleShape)
+                        .size(34.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                        contentDescription = "Pronounce",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = review.word.word,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+
+                        if (review.word.reading.isNotBlank() && review.word.reading != review.word.word) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "【${review.word.reading}】",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    val meaning = review.word.burmeseMeaning.ifBlank { review.word.englishMeaning }
+                    if (meaning.isNotBlank()) {
+                        Text(
+                            text = meaning,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Right: Highlighted SRS Rating Badge
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = ratingBg,
+                border = BorderStroke(1.dp, ratingColor.copy(alpha = 0.5f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = ratingIcon, fontSize = 11.sp)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = ratingLabel,
+                        color = ratingColor,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp
+                    )
                 }
             }
         }

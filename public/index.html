@@ -552,23 +552,31 @@
           </div>
         </div>
 
-        <div style="position:relative;">
-          <textarea id="translate-input" class="text-area" style="padding-bottom: 46px;" placeholder="Enter Japanese text or sentence (e.g. 日本語の勉強はとても面白いです)…"></textarea>
+        <div>
+          <textarea id="translate-input" class="text-area" placeholder="Enter Japanese text or sentence (e.g. 日本語の勉強はとても面白いです)…"></textarea>
           
-          <!-- Bottom actions toolbar inside textarea -->
-          <div style="position:absolute; right:8px; bottom:8px; display:flex; gap:6px; align-items:center;">
-            <button onclick="speakText(document.getElementById('translate-input').value)" class="icon-btn" style="width:34px; height:34px;" title="Listen (ဂျပန်အသံထွက်)">
-              <span class="material-symbols-rounded" style="font-size: 18px;">volume_up</span>
-            </button>
-            <button onclick="pasteToTranslateInput()" class="icon-btn" style="width:34px; height:34px;" title="Paste from clipboard">
-              <span class="material-symbols-rounded" style="font-size: 18px;">content_paste</span>
-            </button>
-            <button onclick="clearTranslateInput()" class="icon-btn" style="width:34px; height:34px;" title="Clear input">
-              <span class="material-symbols-rounded" style="font-size: 18px;">clear</span>
-            </button>
-            <button onclick="startVoiceInput()" id="mic-btn" class="icon-btn" style="width:34px; height:34px;" title="Voice input in Japanese">
-              <span class="material-symbols-rounded" style="font-size: 18px;">mic</span>
-            </button>
+          <!-- Actions toolbar directly below textarea -->
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; margin-bottom:10px;">
+            <div style="display:flex; gap:6px;">
+              <button onclick="speakText(document.getElementById('translate-input').value)" class="word-chip" style="font-size:11px; padding:5px 8px; display:inline-flex; align-items:center; gap:4px;" title="Listen (ဂျပန်အသံထွက်)">
+                <span class="material-symbols-rounded" style="font-size: 16px; color:var(--primary);">volume_up</span> အသံထွက်
+              </button>
+              <button onclick="copyTranslateInputText()" class="word-chip" style="font-size:11px; padding:5px 8px; display:inline-flex; align-items:center; gap:4px;" title="Copy input text">
+                <span class="material-symbols-rounded" style="font-size: 16px;">content_copy</span> ကူးမည်
+              </button>
+              <button onclick="pasteToTranslateInput()" class="word-chip" style="font-size:11px; padding:5px 8px; display:inline-flex; align-items:center; gap:4px;" title="Paste from clipboard">
+                <span class="material-symbols-rounded" style="font-size: 16px; color:var(--primary);">content_paste</span> ကူးထည့်
+              </button>
+            </div>
+
+            <div style="display:flex; gap:6px; align-items:center;">
+              <button onclick="clearTranslateInput()" class="icon-btn" style="width:34px; height:34px;" title="Clear input">
+                <span class="material-symbols-rounded" style="font-size: 18px;">clear</span>
+              </button>
+              <button onclick="startVoiceInput()" id="mic-btn" class="icon-btn" style="width:34px; height:34px;" title="Voice input in Japanese">
+                <span class="material-symbols-rounded" style="font-size: 18px;">mic</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -675,6 +683,34 @@
             <div style="text-align:center;"><strong id="srs-count-mastered" style="color:#2E7D32; font-size:16px;">0</strong><p style="font-size:10px; color:var(--outline);">🏆 ကျွမ်းကျင်</p></div>
           </div>
 
+          <!-- 'Quiz Sorting' Dropdown & Filter Bar -->
+          <div style="background:var(--surface); border:1px solid rgba(0,0,0,0.12); border-radius:12px; padding:10px 14px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="material-symbols-rounded" style="color:var(--primary); font-size:20px;">sort</span>
+              <div>
+                <span style="font-size:10px; color:var(--outline); display:block; font-weight:700;">Quiz Sorting (ဦးစားပေး စီစဉ်မှု):</span>
+                <select id="quiz-sort-select" onchange="changeQuizSortMode(this.value)" style="border:none; background:transparent; font-size:13px; font-weight:700; color:var(--on-surface); outline:none; cursor:pointer;">
+                  <option value="struggling">⚠️ Struggling (ခက်ခဲနေဆဲ ဦးစားပေး)</option>
+                  <option value="jlpt">🎓 JLPT Level (N5 → N1)</option>
+                  <option value="recent">🕒 Recently Added (လတ်တလော ထည့်ထားသည်များ)</option>
+                  <option value="due">⏰ Due for Review (ယနေ့ စစ်ဆေးရန်)</option>
+                  <option value="all">📚 All Words (စကားလုံး အားလုံး)</option>
+                </select>
+              </div>
+            </div>
+            <span id="quiz-active-count-chip" style="font-size:11px; background:var(--surface-variant); padding:3px 8px; border-radius:6px; font-weight:700; color:var(--on-surface);">0 words</span>
+          </div>
+
+          <!-- JLPT sub-filters row (shown when JLPT Sorting selected) -->
+          <div id="quiz-jlpt-subfilters" style="display:none; gap:6px; flex-wrap:wrap; margin-bottom:12px;">
+            <button class="word-chip active" onclick="setQuizJlptFilter('ALL', this)">All JLPT</button>
+            <button class="word-chip" onclick="setQuizJlptFilter('N5', this)">N5</button>
+            <button class="word-chip" onclick="setQuizJlptFilter('N4', this)">N4</button>
+            <button class="word-chip" onclick="setQuizJlptFilter('N3', this)">N3</button>
+            <button class="word-chip" onclick="setQuizJlptFilter('N2', this)">N2</button>
+            <button class="word-chip" onclick="setQuizJlptFilter('N1', this)">N1</button>
+          </div>
+
           <div class="quiz-card" id="quiz-card" style="box-shadow: 0 4px 16px rgba(0,0,0,0.08);">
             <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
               <span id="quiz-srs-badge" class="jlpt-badge" style="background:rgba(229,57,53,0.15); color:#E53935; font-size:11px; padding:3px 8px; border-radius:6px; font-weight:700;">⚠️ ခက်ခဲနေဆဲ</span>
@@ -715,8 +751,19 @@
                 <button class="btn" style="background:var(--primary); color:white; padding:8px 4px; font-size:11px; flex-direction:column; gap:2px;" onclick="gradeSrsCard('easy')">
                   <strong>လွယ်ကူ</strong><span style="font-size:9px; opacity:0.8;">5d+</span>
                 </button>
-              </div>
             </div>
+          </div>
+
+          <!-- Last 5 words reviewed in current session -->
+          <div id="quiz-session-history-container" style="display:none; margin-top:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+              <span style="font-size:13px; font-weight:700; color:var(--on-surface); display:flex; align-items:center; gap:6px;">
+                <span class="material-symbols-rounded" style="font-size:18px; color:var(--primary);">history</span>
+                Last 5 Reviewed in Session:
+              </span>
+              <span id="quiz-session-count-label" style="font-size:11px; background:var(--primary-container); color:var(--on-primary-container); padding:3px 8px; border-radius:6px; font-weight:700;">0/5 words</span>
+            </div>
+            <div id="quiz-session-history-list" style="display:flex; flex-direction:column; gap:8px;"></div>
           </div>
         </div>
 
@@ -1096,6 +1143,16 @@
       document.getElementById('lang-btn-en').classList.toggle('active', lang === 'en');
       const val = document.getElementById('translate-input').value.trim();
       if (val) doTranslate();
+    }
+
+    function copyTranslateInputText() {
+      const val = document.getElementById('translate-input').value.trim();
+      if (!val) {
+        alert('စာရိုက်ထည့်ထားခြင်း မရှိသေးပါ');
+        return;
+      }
+      navigator.clipboard.writeText(val);
+      alert('ဂျပန်စာသား ကူးယူပြီးပါပြီ (Copied input text)');
     }
 
     async function pasteToTranslateInput() {
@@ -1655,13 +1712,72 @@
       document.getElementById('srs-count-mastered').textContent = mastered;
     }
 
+    let currentQuizSortMode = 'struggling';
+    let currentQuizJlptFilter = 'ALL';
+
+    function changeQuizSortMode(mode) {
+      currentQuizSortMode = mode;
+      const subfilters = document.getElementById('quiz-jlpt-subfilters');
+      if (subfilters) {
+        subfilters.style.display = mode === 'jlpt' ? 'flex' : 'none';
+      }
+      rebuildQuizQueue();
+    }
+
+    function setQuizJlptFilter(level, btn) {
+      currentQuizJlptFilter = level;
+      if (btn && btn.parentElement) {
+        btn.parentElement.querySelectorAll('.word-chip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      }
+      rebuildQuizQueue();
+    }
+
+    function rebuildQuizQueue() {
+      if (!savedWordsStore.length) return;
+      const now = Date.now();
+      let filtered = [...savedWordsStore];
+
+      if (currentQuizJlptFilter !== 'ALL') {
+        filtered = filtered.filter(w => (w.jlpt || '').toLowerCase().includes(currentQuizJlptFilter.toLowerCase()));
+      }
+
+      if (currentQuizSortMode === 'struggling') {
+        const struggling = filtered.filter(w => getWordSrsStage(w).label.includes('ခက်ခဲ'));
+        activeQuizQueue = struggling.length ? prioritizeSavedWordsForSrs(struggling) : prioritizeSavedWordsForSrs(filtered);
+      } else if (currentQuizSortMode === 'jlpt') {
+        activeQuizQueue = filtered.sort((a, b) => {
+          const order = (w) => {
+            const l = (w.jlpt || '').toLowerCase();
+            if (l.includes('n5')) return 1;
+            if (l.includes('n4')) return 2;
+            if (l.includes('n3')) return 3;
+            if (l.includes('n2')) return 4;
+            if (l.includes('n1')) return 5;
+            return 6;
+          };
+          return order(a) - order(b);
+        });
+      } else if (currentQuizSortMode === 'recent') {
+        activeQuizQueue = filtered.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      } else if (currentQuizSortMode === 'due') {
+        const due = filtered.filter(w => (w.nextReviewTimestamp || 0) <= now);
+        activeQuizQueue = due.length ? prioritizeSavedWordsForSrs(due) : prioritizeSavedWordsForSrs(filtered);
+      } else {
+        activeQuizQueue = prioritizeSavedWordsForSrs(filtered);
+      }
+
+      const countChip = document.getElementById('quiz-active-count-chip');
+      if (countChip) countChip.textContent = `${activeQuizQueue.length} words`;
+      showQuizCard();
+    }
+
     function startQuiz() {
       if (!savedWordsStore.length) {
         document.getElementById('quiz-card').innerHTML = '<p style="padding:20px; color:var(--outline); text-align:center;">လေ့ကျင့်ရန် သိမ်းဆည်းထားသော စကားလုံး မရှိသေးပါ။ (No saved words yet)</p>';
         return;
       }
-      activeQuizQueue = prioritizeSavedWordsForSrs(savedWordsStore);
-      showQuizCard();
+      rebuildQuizQueue();
     }
 
     function showQuizCard() {
@@ -1750,7 +1866,76 @@
       }
 
       localStorage.setItem('lens_jisho_saved_words', JSON.stringify(savedWordsStore));
+      recordSessionReview(storeItem, rating);
       showQuizCard();
+    }
+
+    let currentSessionReviews = [];
+
+    function recordSessionReview(wordItem, rating) {
+      currentSessionReviews.unshift({
+        word: wordItem.word,
+        reading: wordItem.reading || '',
+        meaning: wordItem.burmese || wordItem.english || '',
+        rating: rating,
+        timestamp: Date.now()
+      });
+      renderQuizSessionHistory();
+    }
+
+    function renderQuizSessionHistory() {
+      const container = document.getElementById('quiz-session-history-container');
+      const list = document.getElementById('quiz-session-history-list');
+      const countLabel = document.getElementById('quiz-session-count-label');
+      if (!container || !list) return;
+
+      if (!currentSessionReviews.length) {
+        container.style.display = 'none';
+        return;
+      }
+
+      container.style.display = 'block';
+      const recent5 = currentSessionReviews.slice(0, 5);
+      countLabel.textContent = `${recent5.length}/5 words`;
+      list.innerHTML = '';
+
+      const ratingStyles = {
+        again: { label: 'Again (ခက်သည်)', icon: '⚠️', color: '#D32F2F', bg: 'rgba(211,47,47,0.12)', border: 'rgba(211,47,47,0.4)' },
+        hard: { label: 'Hard (အတော်ခက်)', icon: '⏳', color: '#F57C00', bg: 'rgba(245,124,0,0.12)', border: 'rgba(245,124,0,0.4)' },
+        good: { label: 'Good (မှတ်မိ)', icon: '✅', color: '#2E7D32', bg: 'rgba(46,125,50,0.12)', border: 'rgba(46,125,50,0.4)' },
+        easy: { label: 'Easy (လွယ်ကူ)', icon: '⭐', color: 'var(--primary)', bg: 'rgba(10,80,240,0.12)', border: 'rgba(10,80,240,0.4)' }
+      };
+
+      recent5.forEach(item => {
+        const style = ratingStyles[item.rating] || ratingStyles.good;
+        const row = document.createElement('div');
+        row.className = 'section-card';
+        row.style.margin = '0';
+        row.style.padding = '10px 14px';
+        row.style.display = 'flex';
+        row.style.justifyContent = 'space-between';
+        row.style.alignItems = 'center';
+        row.style.border = `1.2px solid ${style.border}`;
+        row.style.borderRadius = '14px';
+        row.innerHTML = `
+          <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
+            <button class="icon-btn" style="width:34px; height:34px; border-radius:50%;" onclick="speakText('${item.word}')" title="Pronounce">
+              <span class="material-symbols-rounded" style="font-size:18px;">volume_up</span>
+            </button>
+            <div style="min-width:0;">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <strong style="font-size:16px;">${item.word}</strong>
+                ${item.reading && item.reading !== item.word ? `<span style="font-size:12px; color:var(--primary); font-weight:600;">【${item.reading}】</span>` : ''}
+              </div>
+              <p style="font-size:12px; color:var(--on-surface-variant); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px; margin-top:2px;">${item.meaning}</p>
+            </div>
+          </div>
+          <span style="display:inline-flex; align-items:center; gap:4px; background:${style.bg}; color:${style.color}; border:1px solid ${style.border}; padding:4px 9px; border-radius:8px; font-size:11px; font-weight:700; white-space:nowrap; margin-left:8px;">
+            <span>${style.icon}</span> ${style.label}
+          </span>
+        `;
+        list.appendChild(row);
+      });
     }
 
     // Export saved vocabulary to CSV for Anki & external study tools

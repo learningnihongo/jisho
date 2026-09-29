@@ -144,4 +144,73 @@ object SrsAlgorithm {
             else -> SrsStage.MASTERED
         }
     }
+
+    /**
+     * Filters and sorts the quiz queue based on user selection:
+     * - Struggling: words with high failure rate or struggling stage
+     * - JLPT Level: sorted by N5 -> N4 -> N3 -> N2 -> N1
+     * - Recently Added: latest saved timestamp first
+     * - Due Today: words that need review right now
+     * - All: all words with SRS prioritization
+     */
+    fun filterAndSortQuizQueue(
+        words: List<SavedWord>,
+        sortMode: QuizSortMode,
+        jlptLevelFilter: String = "ALL"
+    ): List<SavedWord> {
+        val now = System.currentTimeMillis()
+        var filtered = words
+
+        if (jlptLevelFilter != "ALL") {
+            filtered = filtered.filter {
+                it.jlptLevel.contains(jlptLevelFilter, ignoreCase = true)
+            }
+        }
+
+        return when (sortMode) {
+            QuizSortMode.STRUGGLING -> {
+                val struggling = filtered.filter { getSrsStage(it) == SrsStage.STRUGGLING }
+                if (struggling.isNotEmpty()) prioritizeForQuiz(struggling) else prioritizeForQuiz(filtered)
+            }
+            QuizSortMode.JLPT_LEVEL -> {
+                filtered.sortedWith(
+                    compareBy<SavedWord> { word ->
+                        val lvl = word.jlptLevel.lowercase()
+                        when {
+                            lvl.contains("n5") -> 1
+                            lvl.contains("n4") -> 2
+                            lvl.contains("n3") -> 3
+                            lvl.contains("n2") -> 4
+                            lvl.contains("n1") -> 5
+                            else -> 6
+                        }
+                    }.thenByDescending { it.incorrectCount }
+                    .thenBy { it.nextReviewTimestamp }
+                )
+            }
+            QuizSortMode.RECENTLY_ADDED -> {
+                filtered.sortedByDescending { it.timestamp }
+            }
+            QuizSortMode.DUE_TODAY -> {
+                val due = filtered.filter { it.nextReviewTimestamp <= now }
+                if (due.isNotEmpty()) prioritizeForQuiz(due) else prioritizeForQuiz(filtered)
+            }
+            QuizSortMode.ALL -> {
+                prioritizeForQuiz(filtered)
+            }
+        }
+    }
+}
+
+enum class QuizSortMode(
+    val id: String,
+    val title: String,
+    val myanmarTitle: String,
+    val iconEmoji: String
+) {
+    STRUGGLING("struggling", "Struggling", "ခက်ခဲနေဆဲ ဦးစားပေး", "⚠️"),
+    JLPT_LEVEL("jlpt", "JLPT Level", "JLPT အဆင့်အလိုက် (N5 → N1)", "🎓"),
+    RECENTLY_ADDED("recent", "Recently Added", "လတ်တလော သိမ်းထားသည်များ", "🕒"),
+    DUE_TODAY("due", "Due for Review", "ယနေ့ စစ်ဆေးရန် ရှိသည်များ", "⏰"),
+    ALL("all", "All Words", "စကားလုံး အားလုံး", "📚")
 }
