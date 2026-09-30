@@ -2,6 +2,8 @@ package com.example.ui.lens
 
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
 import android.graphics.Bitmap
 import android.graphics.Rect
 import android.net.Uri
@@ -35,6 +37,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -57,6 +60,8 @@ import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -178,6 +183,10 @@ fun InteractiveSelectTextView(
         isSheetExpanded = true
     }
 
+    var areBoxesVisible by remember { mutableStateOf(true) }
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -237,6 +246,31 @@ fun InteractiveSelectTextView(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // Eye Icon Toggle for Bounding Boxes (Show/Hide boxes for clear view)
+                IconButton(
+                    onClick = {
+                        areBoxesVisible = !areBoxesVisible
+                        Toast.makeText(
+                            context,
+                            if (areBoxesVisible) "ကွက်လပ်ဘောင်များ ပြသထားပါသည် (Boxes visible)" else "ကွက်လပ်ဘောင်များ ဖျောက်ထားပါသည် (Boxes hidden)",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(if (areBoxesVisible) Color.Black.copy(alpha = 0.55f) else Color(0xFF1E293B).copy(alpha = 0.85f), CircleShape)
+                        .border(if (areBoxesVisible) 0.dp else 1.dp, if (areBoxesVisible) Color.Transparent else Color.White.copy(alpha = 0.3f), CircleShape)
+                        .testTag("toggle_select_boxes_button")
+                ) {
+                    Icon(
+                        imageVector = if (areBoxesVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                        contentDescription = if (areBoxesVisible) "Hide Bounding Boxes" else "Show Bounding Boxes",
+                        tint = if (areBoxesVisible) Color(0xFF00E5FF) else Color.White.copy(alpha = 0.6f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
                 // Select All Button
                 IconButton(
                     onClick = {
@@ -285,7 +319,7 @@ fun InteractiveSelectTextView(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = if (isSheetExpanded) 240.dp else 40.dp)
+                .padding(bottom = if (isLandscape) (if (isSheetExpanded) 130.dp else 20.dp) else (if (isSheetExpanded) 240.dp else 40.dp))
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onTap = {
@@ -349,7 +383,7 @@ fun InteractiveSelectTextView(
             )
 
             // VISUAL INDICATOR: Active Lens Viewport Focus Ring & Border Change when a text region is selected
-            if (hasSelectedRegion) {
+            if (hasSelectedRegion && areBoxesVisible) {
                 // Outer illuminated viewport focus border
                 Box(
                     modifier = Modifier
@@ -467,7 +501,7 @@ fun InteractiveSelectTextView(
 
                     val isThisWordSelected = selectedText == word.text
 
-                    if (isThisWordSelected) {
+                    if (isThisWordSelected && areBoxesVisible) {
                         // VISUAL INDICATOR: Expanding animated focus pulse halo ring around the selected region
                         Box(
                             modifier = Modifier
@@ -686,7 +720,14 @@ fun InteractiveSelectTextView(
             border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .offset(x = (-16).dp, y = if (isSheetExpanded) (-248).dp else (-56).dp)
+                .offset(
+                    x = (-16).dp,
+                    y = if (isLandscape) {
+                        if (isSheetExpanded) (-140).dp else (-32).dp
+                    } else {
+                        if (isSheetExpanded) (-248).dp else (-56).dp
+                    }
+                )
                 .size(48.dp)
                 .zIndex(20f)
                 .clickable {
@@ -728,6 +769,7 @@ fun InteractiveSelectTextView(
                 shadowElevation = 16.dp,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(max = if (isLandscape) 190.dp else 360.dp)
                     .navigationBarsPadding()
                     .testTag("lens_bottom_result_sheet")
             ) {
