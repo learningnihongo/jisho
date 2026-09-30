@@ -14,12 +14,20 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import com.example.ocr.JapaneseOcrManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -65,6 +73,8 @@ import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.OpenInBrowser
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -96,6 +106,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -178,7 +189,9 @@ fun LensScreen(
                     onUseDemoSample = {
                         val sampleBitmap = createDemoJapaneseBitmap()
                         onProcessBitmap(sampleBitmap, 0)
-                    }
+                    },
+                    onWordSelected = onWordSelected,
+                    onSpeak = onSpeak
                 )
             } else {
                 CameraPermissionView(
@@ -202,20 +215,75 @@ fun LensScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun LiveCameraView(
     onPhotoCaptured: (Bitmap, Int) -> Unit,
     onOpenGallery: () -> Unit,
-    onUseDemoSample: () -> Unit
+    onUseDemoSample: () -> Unit,
+    onWordSelected: (String) -> Unit,
+    onSpeak: (String) -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val clipboardManager = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
 
     var lensFacing by remember { mutableStateOf(CameraSelector.LENS_FACING_BACK) }
     var isFlashOn by remember { mutableStateOf(false) }
     var camera by remember { mutableStateOf<Camera?>(null) }
     val imageCapture = remember { ImageCapture.Builder().build() }
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
+    val ocrManager = remember { JapaneseOcrManager() }
+
+    // Live OCR State
+    var isLiveScanFrozen by remember { mutableStateOf(false) }
+    var isAnalyzingFrame by remember { mutableStateOf(false) }
+    var lastAnalyzedTimestamp by remember { mutableLongStateOf(0L) }
+    var liveOcrResult by remember { mutableStateOf<OcrResult?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            cameraExecutor.shutdown()
+            ocrManager.close()
+        }
+    }
+
+    val imageAnalysis = remember {
+        ImageAnalysis.Builder()
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
+            .build()
+    }
+
+    LaunchedEffect(imageAnalysis, isLiveScanFrozen) {
+        imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
+            val now = System.currentTimeMillis()
+            if (isLiveScanFrozen || isAnalyzingFrame || now - lastAnalyzedTimestamp < 450L) {
+                imageProxy.close()
+                return@setAnalyzer
+            }
+            isAnalyzingFrame = true
+            lastAnalyzedTimestamp = now
+            scope.launch {
+                try {
+                    val result = ocrManager.recognizeImageProxy(imageProxy)
+                    withContext(Dispatchers.Main) {
+                        if (!isLiveScanFrozen && result.fullText.isNotBlank()) {
+                            liveOcrResult = result
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                } finally {
+                    imageProxy.close()
+                    withContext(Dispatchers.Main) {
+                        isAnalyzingFrame = false
+                    }
+                }
+            }
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         // CameraX Preview
@@ -245,7 +313,8 @@ fun LiveCameraView(
                             lifecycleOwner,
                             cameraSelector,
                             preview,
-                            imageCapture
+                            imageCapture,
+                            imageAnalysis
                         )
                     } catch (e: Exception) {
                         e.printStackTrace()
@@ -272,7 +341,8 @@ fun LiveCameraView(
                             lifecycleOwner,
                             cameraSelector,
                             preview,
-                            imageCapture
+                            imageCapture,
+                            imageAnalysis
                         )
                     } catch (e: Exception) {
                         e.printStackTrace()
@@ -285,7 +355,7 @@ fun LiveCameraView(
         // Viewfinder Frame & Animated Laser Scan Line
         ViewfinderOverlay()
 
-        // Top Controls (Flash, Switch Camera)
+        // Top Controls (Flash, Switch Camera, Title)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -315,14 +385,20 @@ fun LiveCameraView(
 
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = Color.Black.copy(alpha = 0.6f)
+                color = Color.Black.copy(alpha = 0.65f)
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(if (isLiveScanFrozen) Color(0xFF00E5FF) else Color(0xFF00E676), CircleShape)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Japanese Lens OCR",
+                        text = if (isLiveScanFrozen) "❄️ Scan Frozen" else "⚡ Real-time Scan",
                         color = Color.White,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold
@@ -353,29 +429,211 @@ fun LiveCameraView(
             }
         }
 
-        // Bottom Controls (Gallery, Shutter, Demo Sample)
+        // Bottom Container: Live Scanned Text Card + Tap-to-Copy Actions + Shutter Controls
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(bottom = 20.dp),
+                .padding(bottom = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Quick Hint
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = Color.Black.copy(alpha = 0.6f),
-                modifier = Modifier.padding(bottom = 16.dp)
-            ) {
-                Text(
-                    text = "Point at Japanese text & tap to scan",
-                    color = Color.White.copy(alpha = 0.9f),
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
+            val hasLiveText = liveOcrResult != null && liveOcrResult!!.fullText.isNotBlank()
+
+            if (hasLiveText) {
+                // Real-time Scanned Text Floating Card with Tap-to-Copy
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, if (isLiveScanFrozen) Color(0xFF00E5FF) else MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)),
+                    shadowElevation = 8.dp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .testTag("live_detected_text_card")
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        // Status and toolbar row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(if (isLiveScanFrozen) Color(0xFF00E5FF) else Color(0xFF00E676), CircleShape)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (isLiveScanFrozen) "❄️ စာသား ရပ်တန့်ထားပါသည်" else "🟢 စာသား အလိုအလျောက် ဖတ်မိသည်",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isLiveScanFrozen) MaterialTheme.colorScheme.tertiary else Color(0xFF008940)
+                                )
+                            }
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                // Freeze / Resume Button
+                                FilledTonalButton(
+                                    onClick = { isLiveScanFrozen = !isLiveScanFrozen },
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                    modifier = Modifier.height(28.dp).testTag("live_freeze_toggle_btn")
+                                ) {
+                                    Icon(
+                                        imageVector = if (isLiveScanFrozen) Icons.Default.PlayArrow else Icons.Default.Pause,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = if (isLiveScanFrozen) "ဆက်လုပ်" else "ရပ်တန့်",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(4.dp))
+
+                                // Audio Speak Button
+                                IconButton(
+                                    onClick = { onSpeak(liveOcrResult!!.fullText) },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                                        contentDescription = "Speak",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        // Full recognized text display (Selectable & Tappable to copy)
+                        SelectionContainer {
+                            Text(
+                                text = liveOcrResult!!.fullText,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        // Detected Words chips: Tap to copy individual word
+                        val words = liveOcrResult!!.words.take(8)
+                        if (words.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "စကားလုံးတစ်ခုချင်း Copy ကူးရန် နှိပ်ပါ (Tap word to copy):",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                words.forEach { word ->
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (word.isKanji) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                        modifier = Modifier
+                                            .clickable {
+                                                clipboardManager.setText(AnnotatedString(word.text))
+                                                Toast.makeText(context, "ကူးယူပြီးပါပြီ (Copied): ${word.text}", Toast.LENGTH_SHORT).show()
+                                            }
+                                            .testTag("live_chip_${word.text}")
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = word.text,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (word.isKanji) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Icon(
+                                                imageVector = Icons.Default.ContentCopy,
+                                                contentDescription = "Copy",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(12.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Quick Actions: 1-Tap Copy All Text & Jisho lookup
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    clipboardManager.setText(AnnotatedString(liveOcrResult!!.fullText))
+                                    Toast.makeText(context, "စာသားအားလုံး ကူးယူပြီးပါပြီ (Copied All Text)", Toast.LENGTH_SHORT).show()
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                modifier = Modifier.weight(1f).height(38.dp).testTag("live_copy_all_btn")
+                            ) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("စာသားအားလုံး Copy ကူးမည်", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            OutlinedButton(
+                                onClick = { onWordSelected(liveOcrResult!!.fullText) },
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.height(38.dp).testTag("live_jisho_lookup_btn")
+                            ) {
+                                Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Jisho", fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Live Hint Pill
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.Black.copy(alpha = 0.65f),
+                    modifier = Modifier.padding(bottom = 12.dp, start = 16.dp, end = 16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = "⚡", fontSize = 14.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "ဂျပန်စာသားကို ချိန်ထားပါ — ဓာတ်ပုံရိုက်စရာမလိုဘဲ စကင်ဖတ်ပြီး ကူးယူနိုင်ပါသည်",
+                            color = Color.White.copy(alpha = 0.95f),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 11.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
             }
 
+            // Bottom Shutter & Gallery Bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -399,12 +657,12 @@ fun LiveCameraView(
                     )
                 }
 
-                // Shutter Capture Button
+                // Shutter Capture Button (Takes high-res photo for full deep translation)
                 Box(
                     modifier = Modifier
-                        .size(80.dp)
+                        .size(76.dp)
                         .background(Color.White.copy(alpha = 0.3f), CircleShape)
-                        .padding(6.dp)
+                        .padding(5.dp)
                         .background(Color.White, CircleShape)
                         .clickable {
                             imageCapture.takePicture(
@@ -430,15 +688,25 @@ fun LiveCameraView(
                 ) {
                     Icon(
                         imageVector = Icons.Default.PhotoCamera,
-                        contentDescription = "Capture Lens Scan",
+                        contentDescription = "Capture Lens Photo",
                         tint = Color.Black,
-                        modifier = Modifier.size(34.dp)
+                        modifier = Modifier.size(32.dp)
                     )
                 }
 
-                // Sample Japanese text button (Useful for instant test)
+                // Sample Japanese text button (Immediate demo test)
                 IconButton(
-                    onClick = onUseDemoSample,
+                    onClick = {
+                        val sampleBitmap = createDemoJapaneseBitmap()
+                        scope.launch {
+                            try {
+                                val result = ocrManager.recognizeText(sampleBitmap, 0)
+                                liveOcrResult = result
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
+                    },
                     modifier = Modifier
                         .size(52.dp)
                         .background(Color.White.copy(alpha = 0.2f), CircleShape)

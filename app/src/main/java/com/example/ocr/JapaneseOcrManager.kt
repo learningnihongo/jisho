@@ -2,6 +2,9 @@ package com.example.ocr
 
 import android.graphics.Bitmap
 import android.graphics.Rect
+import androidx.annotation.OptIn
+import androidx.camera.core.ExperimentalGetImage
+import androidx.camera.core.ImageProxy
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
@@ -17,10 +20,17 @@ data class DetectedWord(
     val isKatakana: Boolean = false
 )
 
+data class DetectedBlock(
+    val text: String,
+    val boundingBox: Rect?,
+    val lines: List<String>
+)
+
 data class OcrResult(
     val fullText: String,
     val words: List<DetectedWord>,
-    val lines: List<String>
+    val lines: List<String>,
+    val blocks: List<DetectedBlock> = emptyList()
 )
 
 class JapaneseOcrManager {
@@ -42,16 +52,38 @@ class JapaneseOcrManager {
                 }
         }
 
+    @OptIn(ExperimentalGetImage::class)
+    suspend fun recognizeImageProxy(imageProxy: ImageProxy): OcrResult =
+        suspendCancellableCoroutine { continuation ->
+            val mediaImage = imageProxy.image
+            if (mediaImage != null) {
+                val inputImage = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+                recognizer.process(inputImage)
+                    .addOnSuccessListener { visionText ->
+                        val result = parseVisionText(visionText)
+                        continuation.resume(result)
+                    }
+                    .addOnFailureListener { exception ->
+                        continuation.resumeWithException(exception)
+                    }
+            } else {
+                continuation.resume(OcrResult("", emptyList(), emptyList()))
+            }
+        }
+
     private fun parseVisionText(visionText: Text): OcrResult {
         val fullText = visionText.text
         val lines = mutableListOf<String>()
         val words = mutableListOf<DetectedWord>()
+        val blocks = mutableListOf<DetectedBlock>()
 
         for (block in visionText.textBlocks) {
+            val blockLines = mutableListOf<String>()
             for (line in block.lines) {
                 val lineText = line.text.trim()
                 if (lineText.isNotEmpty()) {
                     lines.add(lineText)
+                    blockLines.add(lineText)
                 }
                 for (element in line.elements) {
                     val rawWord = element.text.trim()
@@ -68,6 +100,15 @@ class JapaneseOcrManager {
                         )
                     }
                 }
+            }
+            if (block.text.isNotBlank()) {
+                blocks.add(
+                    DetectedBlock(
+                        text = block.text.trim(),
+                        boundingBox = block.boundingBox,
+                        lines = blockLines
+                    )
+                )
             }
         }
 
@@ -86,7 +127,8 @@ class JapaneseOcrManager {
         return OcrResult(
             fullText = fullText,
             words = combinedWords,
-            lines = lines
+            lines = lines,
+            blocks = blocks
         )
     }
 

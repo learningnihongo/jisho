@@ -9,9 +9,14 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -196,7 +201,7 @@ fun SavedScreen(
                 onClick = { selectedTab = 1 },
                 text = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("SRS Quiz")
+                        Text("Flashcard Quiz")
                         if (strugglingCount > 0) {
                             Spacer(modifier = Modifier.width(4.dp))
                             Surface(
@@ -443,6 +448,8 @@ fun SrsQuizPracticeSection(
     var isSortDropdownOpen by remember { mutableStateOf(false) }
     var isFlipped by remember { mutableStateOf(false) }
 
+    var initialDeckSize by remember { mutableIntStateOf(0) }
+
     // Dynamic session queue: re-queues struggling cards when "Again" is clicked
     val sessionQueue = remember { mutableStateListOf<SavedWord>() }
 
@@ -454,6 +461,7 @@ fun SrsQuizPracticeSection(
         val sorted = SrsAlgorithm.filterAndSortQuizQueue(savedWords, sortMode, jlptFilter)
         sessionQueue.clear()
         sessionQueue.addAll(sorted)
+        initialDeckSize = sorted.size
         isFlipped = false
     }
 
@@ -464,6 +472,13 @@ fun SrsQuizPracticeSection(
     }
 
     val currentWord = sessionQueue.firstOrNull()
+
+    // 3D Card Rotation Animation
+    val cardRotation by animateFloatAsState(
+        targetValue = if (isFlipped) 180f else 0f,
+        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+        label = "flashcard_3d_flip"
+    )
 
     Column(
         modifier = Modifier
@@ -639,154 +654,265 @@ fun SrsQuizPracticeSection(
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        // Quiz Progress Bar
+        val deckTotal = initialDeckSize.coerceAtLeast(1)
+        val completedCount = (deckTotal - sessionQueue.size).coerceAtLeast(0)
+        val progressPercent = (completedCount.toFloat() / deckTotal.toFloat()).coerceIn(0f, 1f)
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "🎮 Quiz Progress: $completedCount/$deckTotal စကားလုံးပြီးစီး",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.outline
+            )
+            Text(
+                text = "${(progressPercent * 100).toInt()}%",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        LinearProgressIndicator(
+            progress = { progressPercent },
+            modifier = Modifier.fillMaxWidth().height(6.dp),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(14.dp))
+
         if (currentWord == null) {
             // Session completed celebration
             Surface(
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(20.dp),
                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(54.dp)
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Text("🏆", fontSize = 48.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "SRS Review Completed! 🎉",
-                        style = MaterialTheme.typography.titleMedium,
+                        text = "Flashcard Quiz Completed! 🎉",
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "ယခု အသုတ်အတွက် ခက်ခဲသော စကားလုံးအားလုံးကို ပြန်လည် လေ့ကျင့်ပြီးပါပြီ။",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                        text = "ယခု အသုတ်အတွက် ခက်ခဲသော စကားလုံးအားလုံးကို အောင်မြင်စွာ လေ့ကျင့်ပြီးပါပြီ။",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
                         textAlign = TextAlign.Center
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(text = "$deckTotal", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = MaterialTheme.colorScheme.primary)
+                            Text(text = "လေ့ကျင့်ခဲ့သည့် စကားလုံး", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(text = "${sessionReviews.size}", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = MaterialTheme.colorScheme.tertiary)
+                            Text(text = "စုစုပေါင်း ဖြေဆိုမှု", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(20.dp))
                     Button(
                         onClick = { rebuildQueue() },
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
                     ) {
                         Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("ထပ်မံ လေ့ကျင့်မည် (Restart)")
+                        Text("ထပ်မံ ကစားမည် (Play Again)", fontWeight = FontWeight.Bold)
                     }
                 }
             }
         } else {
             val stage = SrsAlgorithm.getSrsStage(currentWord)
 
-            // Flashcard Box
+            // Interactive 3D Flip Flashcard Box
             Surface(
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(22.dp),
                 color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.5.dp, if (stage == SrsStage.STRUGGLING) MaterialTheme.colorScheme.error.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant),
-                shadowElevation = 4.dp,
+                border = BorderStroke(
+                    2.dp,
+                    if (stage == SrsStage.STRUGGLING) MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+                    else MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                ),
+                shadowElevation = 6.dp,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(280.dp)
+                    .graphicsLayer {
+                        rotationY = cardRotation
+                        cameraDistance = 14f * density
+                    }
                     .clickable { isFlipped = !isFlipped }
                     .testTag("srs_active_flashcard")
             ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // Card Top Header: Stage badge & remaining count
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                if (cardRotation <= 90f) {
+                    // FRONT OF FLASHCARD: Target Japanese Word + JLPT + Audio
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color(stage.colorHex).copy(alpha = 0.15f)
+                        // Card Top Header
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = stage.myanmarLabel,
-                                color = Color(stage.colorHex),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                            )
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(stage.colorHex).copy(alpha = 0.15f)
+                            ) {
+                                Text(
+                                    text = stage.myanmarLabel,
+                                    color = Color(stage.colorHex),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (currentWord.jlptLevel.isNotBlank()) {
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = getJlptColor(currentWord.jlptLevel)
+                                    ) {
+                                        Text(
+                                            text = currentWord.jlptLevel,
+                                            color = Color.White,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                }
+                                Text(
+                                    text = "ကျန်ရှိ: ${sessionQueue.size}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.outline,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
 
-                        Text(
-                            text = "ကျန်ရှိ: ${sessionQueue.size}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.outline,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        // Target Word Calligraphy Center
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            SelectionContainer {
+                                Text(
+                                    text = currentWord.word,
+                                    style = MaterialTheme.typography.displayMedium,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            IconButton(
+                                onClick = { onSpeak(currentWord.word) },
+                                modifier = Modifier
+                                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f), CircleShape)
+                                    .size(42.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                                    contentDescription = "Speak",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+
+                        // Bottom Flip Prompt Hint
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "🔄 ကတ်ပြားကို နှိပ်၍ အဖြေဖွင့်ပါ (Tap to flip)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Main Target Word
-                    SelectionContainer {
-                        Text(
-                            text = currentWord.word,
-                            style = MaterialTheme.typography.displaySmall,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Audio speak button
-                    IconButton(
-                        onClick = { onSpeak(currentWord.word) },
+                } else {
+                    // BACK OF FLASHCARD: Reading Furigana + Burmese Meaning + English (Mirrored rotationY = 180f)
+                    Column(
                         modifier = Modifier
-                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f), CircleShape)
-                            .size(38.dp)
+                            .fillMaxSize()
+                            .graphicsLayer { rotationY = 180f }
+                            .padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                            contentDescription = "Speak",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                        // Card Top Header
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "【အဖြေနှင့် အဓိပ္ပာယ်】",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                            IconButton(
+                                onClick = { onSpeak(currentWord.word) },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                                    contentDescription = "Speak",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
 
-                    // Flipped Back Answer
-                    AnimatedVisibility(
-                        visible = isFlipped,
-                        enter = fadeIn(tween(180)),
-                        exit = fadeOut(tween(120))
-                    ) {
+                        // Reading & Meanings
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                                modifier = Modifier.padding(vertical = 10.dp)
-                            )
-
                             if (currentWord.reading.isNotBlank()) {
                                 Text(
                                     text = "【${currentWord.reading}】",
-                                    style = MaterialTheme.typography.titleMedium,
+                                    style = MaterialTheme.typography.titleLarge,
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold
                                 )
-                                Spacer(modifier = Modifier.height(4.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
                             }
 
                             if (currentWord.burmeseMeaning.isNotBlank()) {
                                 Text(
                                     text = "🇲🇲 ${currentWord.burmeseMeaning}",
-                                    style = MaterialTheme.typography.bodyLarge,
+                                    style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.tertiary,
                                     textAlign = TextAlign.Center
@@ -798,27 +924,18 @@ fun SrsQuizPracticeSection(
                                 text = currentWord.englishMeaning,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            // Memory Recall stats info
-                            Text(
-                                text = "မှတ်မိမှု: ${currentWord.correctCount} ကြိမ် | ခက်ခဲခဲ့: ${currentWord.incorrectCount} ကြိမ်",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.outline,
-                                fontSize = 11.sp
+                                textAlign = TextAlign.Center,
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
-                    }
 
-                    if (!isFlipped) {
+                        // Memory stats footer
                         Text(
-                            text = "💡 အဖြေနှင့် အဓိပ္ပာယ် ကြည့်ရန် နှိပ်ပါ (Tap to reveal)",
+                            text = "မှတ်မိမှု: ${currentWord.correctCount}x · ခက်ခဲခဲ့: ${currentWord.incorrectCount}x · အဆင့်: ${stage.myanmarLabel}",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.padding(top = 8.dp)
+                            fontSize = 11.sp
                         )
                     }
                 }
@@ -923,7 +1040,7 @@ fun SrsQuizPracticeSection(
                 Button(
                     onClick = { isFlipped = true },
                     shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth().height(48.dp)
+                    modifier = Modifier.fillMaxWidth().height(48.dp).testTag("srs_btn_show_answer")
                 ) {
                     Text("အဖြေစစ်ဆေးမည် (Show Answer)", fontWeight = FontWeight.Bold)
                 }
@@ -1131,8 +1248,9 @@ fun SrsOverviewHeader(
 
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
-        modifier = Modifier.fillMaxWidth()
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+        border = BorderStroke(1.2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+        modifier = Modifier.fillMaxWidth().testTag("flashcard_quiz_banner")
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
@@ -1141,31 +1259,36 @@ fun SrsOverviewHeader(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.School, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    Text(text = "🎮", fontSize = 18.sp)
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Spaced Repetition (SRS)",
+                        text = "Flashcard Quiz Game (ကစားမည်)",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = if (struggling > 0) "⚠️ ခက်ခဲနေသော စကားလုံး $struggling လုံးကို အရင်ဦးစားပေး စစ်ဆေးပါ" else "စကားလုံးများကို ကာလခြား မှတ်မိမှုစနစ်ဖြင့် လေ့ကျင့်ပါ",
+                    text = if (struggling > 0) "⚠️ ခက်ခဲသော စကားလုံး $struggling လုံး ရှိပါသည်။ Flashcard ဖြင့် လေ့ကျင့်ပါ" else "သိမ်းဆည်းထားသော စကားလုံးများကို 3D Flip Flashcard ဖြင့် ကစားလေ့ကျင့်ပါ",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
                 )
             }
 
+            Spacer(modifier = Modifier.width(8.dp))
+
             Button(
                 onClick = onStartQuiz,
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (struggling > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                )
+                ),
+                modifier = Modifier.testTag("play_flashcard_quiz_btn")
             ) {
-                Text("Quiz ဖြေမည်", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Play Quiz", fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
