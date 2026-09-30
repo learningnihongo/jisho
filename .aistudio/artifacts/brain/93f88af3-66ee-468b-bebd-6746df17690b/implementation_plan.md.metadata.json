@@ -1,6 +1,6 @@
 {
-  "summary": "Implementation plan for adding real-time live camera OCR text scanning with instant tap-to-copy in the Lens section, and an interactive 3D flip flashcard quiz game with spaced repetition (SRS) self-rating in the Save section.",
-  "updatedAt": "2026-09-30T08:28:11.755308279Z",
+  "summary": "Implementation plan for building and releasing an installable APK for direct installation on Android devices, including verification and export guidance.",
+  "updatedAt": "2026-09-30T10:25:04.023907145Z",
   "requestFeedback": true,
   "userFacing": true
 }
