@@ -78,6 +78,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -157,8 +158,21 @@ fun LensScreen(
         }
     }
 
+    var isSelectTextModeActive by remember { mutableStateOf(false) }
+
     Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
-        if (capturedBitmap != null) {
+        if (capturedBitmap != null && ocrResult != null && isSelectTextModeActive) {
+            // Full-screen interactive Google Lens text selection mode (Screenshot 2)
+            InteractiveSelectTextView(
+                bitmap = capturedBitmap,
+                ocrResult = ocrResult,
+                targetLanguage = targetLanguage,
+                onTargetLanguageChange = onTargetLanguageChange,
+                onWordSelected = onWordSelected,
+                onSpeak = onSpeak,
+                onDismiss = { isSelectTextModeActive = false }
+            )
+        } else if (capturedBitmap != null) {
             // View mode: Captured image with OCR result and interactive word pills
             CapturedResultView(
                 bitmap = capturedBitmap,
@@ -169,14 +183,23 @@ fun LensScreen(
                 targetLanguage = targetLanguage,
                 onTargetLanguageChange = onTargetLanguageChange,
                 onWordSelected = onWordSelected,
-                onClear = onClearCapture,
-                onSpeak = onSpeak
+                onClear = {
+                    isSelectTextModeActive = false
+                    onClearCapture()
+                },
+                onSpeak = onSpeak,
+                onOpenSelectText = { isSelectTextModeActive = true }
             )
         } else {
             // Live Camera or Permission Prompt
             if (hasCameraPermission) {
                 LiveCameraView(
                     onPhotoCaptured = { bitmap, rotation ->
+                        isSelectTextModeActive = false
+                        onProcessBitmap(bitmap, rotation)
+                    },
+                    onSelectText = { bitmap, rotation ->
+                        isSelectTextModeActive = true
                         onProcessBitmap(bitmap, rotation)
                     },
                     onOpenGallery = {
@@ -188,6 +211,7 @@ fun LensScreen(
                     },
                     onUseDemoSample = {
                         val sampleBitmap = createDemoJapaneseBitmap()
+                        isSelectTextModeActive = true
                         onProcessBitmap(sampleBitmap, 0)
                     },
                     onWordSelected = onWordSelected,
@@ -207,6 +231,7 @@ fun LensScreen(
                     },
                     onUseDemoSample = {
                         val sampleBitmap = createDemoJapaneseBitmap()
+                        isSelectTextModeActive = true
                         onProcessBitmap(sampleBitmap, 0)
                     }
                 )
@@ -219,6 +244,7 @@ fun LensScreen(
 @Composable
 fun LiveCameraView(
     onPhotoCaptured: (Bitmap, Int) -> Unit,
+    onSelectText: (Bitmap, Int) -> Unit,
     onOpenGallery: () -> Unit,
     onUseDemoSample: () -> Unit,
     onWordSelected: (String) -> Unit,
@@ -352,8 +378,10 @@ fun LiveCameraView(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Viewfinder Frame & Animated Laser Scan Line
-        ViewfinderOverlay()
+        val hasLiveText = liveOcrResult != null && liveOcrResult!!.fullText.isNotBlank()
+
+        // Viewfinder Frame & Animated Laser Scan Line (with active focus indicator)
+        ViewfinderOverlay(isTextDetected = hasLiveText)
 
         // Top Controls (Flash, Switch Camera, Title)
         Row(
@@ -633,6 +661,56 @@ fun LiveCameraView(
                 }
             }
 
+            // Centered Google Lens "select text" pill button (Matching Screenshot 1)
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = Color.White,
+                shadowElevation = 8.dp,
+                modifier = Modifier
+                    .padding(bottom = 14.dp)
+                    .clickable {
+                        // Capture photo and directly enter Google Lens Interactive Select Text mode
+                        imageCapture.takePicture(
+                            cameraExecutor,
+                            object : ImageCapture.OnImageCapturedCallback() {
+                                override fun onCaptureSuccess(imageProxy: ImageProxy) {
+                                    val bitmap = imageProxy.toBitmap()
+                                    val rotation = imageProxy.imageInfo.rotationDegrees
+                                    imageProxy.close()
+                                    ContextCompat.getMainExecutor(context).execute {
+                                        onSelectText(bitmap, rotation)
+                                    }
+                                }
+
+                                override fun onError(exception: ImageCaptureException) {
+                                    val sampleBitmap = createDemoJapaneseBitmap()
+                                    onSelectText(sampleBitmap, 0)
+                                }
+                            }
+                        )
+                    }
+                    .testTag("select_text_pill_button")
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.SelectAll,
+                        contentDescription = "Select Text",
+                        tint = Color(0xFF1E293B),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "select text",
+                        color = Color(0xFF1E293B),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
             // Bottom Shutter & Gallery Bar
             Row(
                 modifier = Modifier
@@ -657,7 +735,7 @@ fun LiveCameraView(
                     )
                 }
 
-                // Shutter Capture Button (Takes high-res photo for full deep translation)
+                // Shutter Capture Button (Google Lens search & text selector style)
                 Box(
                     modifier = Modifier
                         .size(76.dp)
@@ -673,12 +751,13 @@ fun LiveCameraView(
                                         val rotation = imageProxy.imageInfo.rotationDegrees
                                         imageProxy.close()
                                         ContextCompat.getMainExecutor(context).execute {
-                                            onPhotoCaptured(bitmap, rotation)
+                                            onSelectText(bitmap, rotation)
                                         }
                                     }
 
                                     override fun onError(exception: ImageCaptureException) {
-                                        exception.printStackTrace()
+                                        val sampleBitmap = createDemoJapaneseBitmap()
+                                        onSelectText(sampleBitmap, 0)
                                     }
                                 }
                             )
@@ -687,10 +766,10 @@ fun LiveCameraView(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.PhotoCamera,
-                        contentDescription = "Capture Lens Photo",
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Capture Lens Photo & Select Text",
                         tint = Color.Black,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(34.dp)
                     )
                 }
 
@@ -698,14 +777,7 @@ fun LiveCameraView(
                 IconButton(
                     onClick = {
                         val sampleBitmap = createDemoJapaneseBitmap()
-                        scope.launch {
-                            try {
-                                val result = ocrManager.recognizeText(sampleBitmap, 0)
-                                liveOcrResult = result
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
-                        }
+                        onSelectText(sampleBitmap, 0)
                     },
                     modifier = Modifier
                         .size(52.dp)
@@ -727,7 +799,7 @@ fun LiveCameraView(
 }
 
 @Composable
-fun ViewfinderOverlay() {
+fun ViewfinderOverlay(isTextDetected: Boolean = false) {
     val infiniteTransition = rememberInfiniteTransition(label = "laser_scan")
     val laserOffset by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -738,6 +810,15 @@ fun ViewfinderOverlay() {
         ),
         label = "laser_offset"
     )
+    val pulseGlowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.6f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse_glow"
+    )
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val frameWidth = maxWidth * 0.85f
@@ -747,8 +828,38 @@ fun ViewfinderOverlay() {
             modifier = Modifier
                 .size(width = frameWidth, height = frameHeight)
                 .align(Alignment.Center)
-                .border(2.dp, Color.White.copy(alpha = 0.7f), RoundedCornerShape(16.dp))
+                .border(
+                    width = if (isTextDetected) 2.5.dp else 2.dp,
+                    color = if (isTextDetected) Color(0xFF00E5FF).copy(alpha = pulseGlowAlpha) else Color.White.copy(alpha = 0.7f),
+                    shape = RoundedCornerShape(16.dp)
+                )
         ) {
+            // Camera Focus Corner Reticles
+            val bracketLength = 26.dp
+            val bracketThickness = 3.5.dp
+            val bracketColor = if (isTextDetected) Color(0xFF00E5FF) else Color.White
+
+            // Top-Left Bracket
+            Box(modifier = Modifier.align(Alignment.TopStart)) {
+                Box(modifier = Modifier.size(width = bracketLength, height = bracketThickness).background(bracketColor, RoundedCornerShape(2.dp)))
+                Box(modifier = Modifier.size(width = bracketThickness, height = bracketLength).background(bracketColor, RoundedCornerShape(2.dp)))
+            }
+            // Top-Right Bracket
+            Box(modifier = Modifier.align(Alignment.TopEnd)) {
+                Box(modifier = Modifier.align(Alignment.TopEnd).size(width = bracketLength, height = bracketThickness).background(bracketColor, RoundedCornerShape(2.dp)))
+                Box(modifier = Modifier.align(Alignment.TopEnd).size(width = bracketThickness, height = bracketLength).background(bracketColor, RoundedCornerShape(2.dp)))
+            }
+            // Bottom-Left Bracket
+            Box(modifier = Modifier.align(Alignment.BottomStart)) {
+                Box(modifier = Modifier.align(Alignment.BottomStart).size(width = bracketLength, height = bracketThickness).background(bracketColor, RoundedCornerShape(2.dp)))
+                Box(modifier = Modifier.align(Alignment.BottomStart).size(width = bracketThickness, height = bracketLength).background(bracketColor, RoundedCornerShape(2.dp)))
+            }
+            // Bottom-Right Bracket
+            Box(modifier = Modifier.align(Alignment.BottomEnd)) {
+                Box(modifier = Modifier.align(Alignment.BottomEnd).size(width = bracketLength, height = bracketThickness).background(bracketColor, RoundedCornerShape(2.dp)))
+                Box(modifier = Modifier.align(Alignment.BottomEnd).size(width = bracketThickness, height = bracketLength).background(bracketColor, RoundedCornerShape(2.dp)))
+            }
+
             // Laser scan bar
             Box(
                 modifier = Modifier
@@ -773,7 +884,8 @@ fun CapturedResultView(
     onTargetLanguageChange: (String) -> Unit,
     onWordSelected: (String) -> Unit,
     onClear: () -> Unit,
-    onSpeak: (String) -> Unit
+    onSpeak: (String) -> Unit,
+    onOpenSelectText: () -> Unit
 ) {
     val context = LocalContext.current
 
@@ -791,51 +903,73 @@ fun CapturedResultView(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(
-                onClick = onClear,
-                modifier = Modifier.testTag("lens_close_button")
-            ) {
-                Icon(Icons.Default.Close, contentDescription = "Close Scan")
-            }
-
-            Text(
-                text = "Lens Recognition",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            // Language Switcher (Myanmar / English)
-            Row(
-                modifier = Modifier
-                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(20.dp))
-                    .padding(horizontal = 4.dp, vertical = 2.dp)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = if (targetLanguage == "my") MaterialTheme.colorScheme.primary else Color.Transparent,
-                    modifier = Modifier.clickable { onTargetLanguageChange("my") }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = onClear,
+                    modifier = Modifier.testTag("lens_close_button")
                 ) {
-                    Text(
-                        text = "မြန်မာ",
-                        color = if (targetLanguage == "my") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        fontWeight = FontWeight.Bold
-                    )
+                    Icon(Icons.Default.Close, contentDescription = "Close Scan")
                 }
 
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = if (targetLanguage == "en") MaterialTheme.colorScheme.primary else Color.Transparent,
-                    modifier = Modifier.clickable { onTargetLanguageChange("en") }
+                Spacer(modifier = Modifier.width(4.dp))
+
+                Text(
+                    text = "Lens OCR",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Interactive Select Text Mode Button (Directly opens Google Lens Text Selection)
+                FilledTonalButton(
+                    onClick = onOpenSelectText,
+                    shape = RoundedCornerShape(14.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    modifier = Modifier
+                        .height(34.dp)
+                        .testTag("open_select_text_header_btn")
                 ) {
-                    Text(
-                        text = "English",
-                        color = if (targetLanguage == "en") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        fontWeight = FontWeight.Bold
-                    )
+                    Icon(Icons.Default.SelectAll, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Select Text", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Language Switcher (Myanmar / English)
+                Row(
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(20.dp))
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (targetLanguage == "my") MaterialTheme.colorScheme.primary else Color.Transparent,
+                        modifier = Modifier.clickable { onTargetLanguageChange("my") }
+                    ) {
+                        Text(
+                            text = "မြန်မာ",
+                            color = if (targetLanguage == "my") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (targetLanguage == "en") MaterialTheme.colorScheme.primary else Color.Transparent,
+                        modifier = Modifier.clickable { onTargetLanguageChange("en") }
+                    ) {
+                        Text(
+                            text = "English",
+                            color = if (targetLanguage == "en") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }
@@ -848,13 +982,15 @@ fun CapturedResultView(
                 .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
         ) {
-            // Captured Image Preview Box
+            // Captured Image Preview Box (Clickable to enter Google Lens Select Text Mode)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp)
+                    .height(210.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(Color.Black),
+                    .background(Color.Black)
+                    .clickable { onOpenSelectText() }
+                    .testTag("captured_image_select_text_box"),
                 contentAlignment = Alignment.Center
             ) {
                 Image(
@@ -862,6 +998,35 @@ fun CapturedResultView(
                     contentDescription = "Captured Lens Photo",
                     modifier = Modifier.fillMaxSize()
                 )
+
+                // Select Text Badge Overlay
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color.Black.copy(alpha = 0.75f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SelectAll,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "☷ Tap to select text",
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
 
                 if (isProcessing) {
                     Box(

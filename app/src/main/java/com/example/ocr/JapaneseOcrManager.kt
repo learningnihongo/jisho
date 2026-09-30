@@ -26,11 +26,18 @@ data class DetectedBlock(
     val lines: List<String>
 )
 
+data class DetectedLine(
+    val text: String,
+    val boundingBox: Rect?,
+    val words: List<DetectedWord>
+)
+
 data class OcrResult(
     val fullText: String,
     val words: List<DetectedWord>,
     val lines: List<String>,
-    val blocks: List<DetectedBlock> = emptyList()
+    val blocks: List<DetectedBlock> = emptyList(),
+    val detailedLines: List<DetectedLine> = emptyList()
 )
 
 class JapaneseOcrManager {
@@ -76,6 +83,7 @@ class JapaneseOcrManager {
         val lines = mutableListOf<String>()
         val words = mutableListOf<DetectedWord>()
         val blocks = mutableListOf<DetectedBlock>()
+        val detailedLines = mutableListOf<DetectedLine>()
 
         for (block in visionText.textBlocks) {
             val blockLines = mutableListOf<String>()
@@ -85,20 +93,30 @@ class JapaneseOcrManager {
                     lines.add(lineText)
                     blockLines.add(lineText)
                 }
+                val lineWords = mutableListOf<DetectedWord>()
                 for (element in line.elements) {
                     val rawWord = element.text.trim()
                     if (rawWord.isNotEmpty()) {
                         val isKanji = rawWord.any { it.code in 0x4E00..0x9FAF }
                         val isKatakana = rawWord.any { it.code in 0x30A0..0x30FF }
-                        words.add(
-                            DetectedWord(
-                                text = rawWord,
-                                boundingBox = element.boundingBox,
-                                isKanji = isKanji,
-                                isKatakana = isKatakana
-                            )
+                        val detectedWord = DetectedWord(
+                            text = rawWord,
+                            boundingBox = element.boundingBox,
+                            isKanji = isKanji,
+                            isKatakana = isKatakana
                         )
+                        words.add(detectedWord)
+                        lineWords.add(detectedWord)
                     }
+                }
+                if (lineText.isNotEmpty()) {
+                    detailedLines.add(
+                        DetectedLine(
+                            text = lineText,
+                            boundingBox = line.boundingBox,
+                            words = lineWords
+                        )
+                    )
                 }
             }
             if (block.text.isNotBlank()) {
@@ -128,7 +146,8 @@ class JapaneseOcrManager {
             fullText = fullText,
             words = combinedWords,
             lines = lines,
-            blocks = blocks
+            blocks = blocks,
+            detailedLines = detailedLines
         )
     }
 
